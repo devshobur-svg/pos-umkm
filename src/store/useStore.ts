@@ -57,112 +57,123 @@ export interface TransactionDoc {
   paymentMethod: string;
   uangDiterima: number;
   kembalian: number;
+  kasirId: string;
 }
 
-export interface DashboardData {
+export interface DashboardSummary {
   omzet: number;
   transaksiCount: number;
   labaBersih: number;
   produkTerjualCount: number;
   grafikHari: DataPoint[];
-  grafikMinggu: DataPoint[];
-  grafikBulan: DataPoint[];
   produkTerlaris: { nama: string; terjual: number }[];
+}
+
+export interface AIPredictionItem {
+  id: string;
+  nama: string;
+  sisaStok: number;
+  satuan: string;
+  avgTerjualPerHari: number;
+  estimasiHariHabis: number;
+  rekomendasiOrder: number;
+  statusKritis: 'AMAN' | 'PERINGATAN' | 'KRITIS';
+}
+
+export interface AIMarginInsight {
+  nama: string;
+  totalQtyTerjual: number;
+  totalProfitBersih: number;
+  kontribusiPersen: number;
+  kuadranStatus: 'STAR (Laris & Untung Gede)' | 'CASH COW (Untung Gede tapi Slow)' | 'VOLUME BOOSTER (Laris tapi Tipis)' | 'SLOW MOVER (Kurang Peminat)';
+  rekomendasiStrategi: string;
 }
 
 interface AppState {
   namaToko: string;
-  pemilik: string;
-  dashboardData: DashboardData;
+  kasirAktif: string;
+  daftarKasir: string[];
   products: Product[];
   cart: CartItem[];
   paymentMethods: PaymentMethod[];
-  hariIniTransactions: TransactionDoc[];
+  allTransactions: TransactionDoc[];
   isLoading: boolean;
+  isOnline: boolean;
   initAppSync: () => Promise<void>;
-  updateProfile: (namaToko: string, pemilik: string) => Promise<void>;
+  setKasirAktif: (namaKasir: string) => void;
+  addKasirDinamis: (namaKasir: string) => Promise<void>;
+  getComputedDashboard: () => DashboardSummary;
+  getAIPredictiveStock: () => AIPredictionItem[];
+  getAIMarginInsights: () => AIMarginInsight[];
+  updateProfile: (namaToko: string) => Promise<void>;
   togglePaymentMethod: (id: string) => Promise<void>;
   updatePaymentDetails: (id: string, details: string) => Promise<void>;
   addProduct: (product: Product) => Promise<void>;
-  updateProduct: (id: string, updatedData: Partial<Product>) => Promise<void>; // Tambahan fungsi update data produk
-  deleteProduct: (id: string) => Promise<void>; // Tambahan fungsi delete produk
-  updateStock: (id: string, newStock: number) => Promise<void>;
+  updateProduct: (id: string, updatedData: Partial<Product>) => Promise<void>;
+  deleteProduct: (id: string) => Promise<void>;
+  resetDataToko: () => Promise<void>;
   addToCart: (product: Product) => void;
   removeFromCart: (id: string) => void;
   updateCartQuantity: (id: string, action: 'increase' | 'decrease') => void;
   clearCart: () => void;
   checkout: (paymentMethod: string, uangDiterima: number) => Promise<{ kembalian: number } | string>;
+  syncOfflineTransactions: () => Promise<void>;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
   namaToko: "Kopi & Roti Mantap",
-  pemilik: "Shobur",
+  kasirAktif: "Shobur",
+  daftarKasir: ["Shobur", "Budi", "Siti"],
   isLoading: true,
-  hariIniTransactions: [],
-  dashboardData: {
-    omzet: 0,
-    transaksiCount: 0,
-    labaBersih: 0,
-    produkTerjualCount: 0,
-    grafikHari: [],
-    grafikMinggu: [],
-    grafikBulan: [],
-    produkTerlaris: []
-  },
+  isOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
+  allTransactions: [],
   products: [],
   cart: [],
   paymentMethods: [
     { id: 'tunai', nama: 'Uang Tunai / Cash', isActive: true, details: 'Pembayaran cash langsung' },
     { id: 'qris', nama: 'QRIS Dinamis', isActive: true, details: 'Gopay, OVO, Dana, LinkAja' },
-    { id: 'transfer', nama: 'Transfer Bank', isActive: false, details: 'BCA - 1234567890 an Shobur' }
+    { id: 'transfer', nama: 'Transfer Bank', isActive: false, details: 'BCA - 1234567890' }
   ],
 
   initAppSync: async () => {
     set({ isLoading: true });
+    
+    if (typeof window !== 'undefined') {
+      window.addEventListener('online', () => {
+        set({ isOnline: true });
+        get().syncOfflineTransactions();
+      });
+      window.addEventListener('offline', () => set({ isOnline: false }));
+    }
+
     const profileRef = doc(db, 'settings', 'profile');
-    const dashboardRef = doc(db, 'dashboard', 'summary');
     const paymentSettingsRef = doc(db, 'settings', 'payment_methods');
+    const cashiersRef = doc(db, 'settings', 'cashiers');
     const transactionsCollectionRef = collection(db, 'transactions');
 
     try {
       const profileSnap = await getDoc(profileRef);
       if (!profileSnap.exists()) {
-        await setDoc(profileRef, { namaToko: "Kopi & Roti Mantap", pemilik: "Shobur" });
+        await setDoc(profileRef, { namaToko: "Kopi & Roti Mantap" });
       }
-      const dashboardSnap = await getDoc(dashboardRef);
-      if (!dashboardSnap.exists()) {
-        await setDoc(dashboardRef, {
-          omzet: Number(262000),
-          transaksiCount: Number(7),
-          labaBersih: Number(90000),
-          produkTerjualCount: Number(18),
-          grafikHari: [
-            { label: '08', value: 10000 },
-            { label: '12', value: 25000 },
-            { label: '16', value: 75000 },
-            { label: '20', value: 152000 }
-          ],
-          grafikMinggu: [{ label: 'Sen', value: 350000 }, { label: 'Sel', value: 420000 }],
-          grafikBulan: [{ label: 'Jun', value: 262000 }],
-          produkTerlaris: [{ nama: 'cingcau', terjual: 3 }]
-        });
+      const cashiersSnap = await getDoc(cashiersRef);
+      if (!cashiersSnap.exists()) {
+        await setDoc(cashiersRef, { list: ["Shobur", "Budi", "Siti"] });
       }
     } catch (e) {
-      console.warn("Bootstrap sync passed: ", e);
+      console.warn("Bootstrap profiles config initiated pass");
     }
 
     onSnapshot(profileRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        set({ namaToko: data.namaToko, pemilik: data.pemilik });
-      }
+      if (docSnap.exists()) set({ namaToko: docSnap.data().namaToko });
+    });
+
+    onSnapshot(cashiersRef, (docSnap) => {
+      if (docSnap.exists() && docSnap.data().list) set({ daftarKasir: docSnap.data().list });
     });
 
     onSnapshot(paymentSettingsRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        if (data.methods) set({ paymentMethods: data.methods });
-      }
+      if (docSnap.exists() && docSnap.data().methods) set({ paymentMethods: docSnap.data().methods });
     });
 
     onSnapshot(transactionsCollectionRef, (querySnapshot) => {
@@ -179,9 +190,15 @@ export const useAppStore = create<AppState>((set, get) => ({
           paymentMethod: data.paymentMethod || 'tunai',
           uangDiterima: Number(data.uangDiterima || 0),
           kembalian: Number(data.kembalian || 0),
+          kasirId: data.kasirId || 'Shobur'
         });
       });
-      set({ hariIniTransactions: listTx });
+      const localQueue = JSON.parse(localStorage.getItem('offline_transactions_queue') || '[]');
+      // Gunakan pembaruan state fungsional agar aman dari tabrakan
+      set((state) => ({ allTransactions: [...localQueue, ...listTx], isLoading: false }));
+    }, () => {
+      const localQueue = JSON.parse(localStorage.getItem('offline_transactions_queue') || '[]');
+      set((state) => ({ allTransactions: localQueue, isLoading: false }));
     });
 
     const productsRef = collection(db, 'products');
@@ -202,84 +219,225 @@ export const useAppStore = create<AppState>((set, get) => ({
           colorClass: data.colorClass || 'bg-gray-100 text-gray-800'
         });
       });
-      set({ products: prodList });
+      // FIX UTAMA: Update produk menggunakan fungsional set agar properti actions lain tidak ikut terhapus
+      set((state) => ({ products: prodList }));
     });
 
-    onSnapshot(dashboardRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data() as DashboardData;
-        set({ 
-          dashboardData: {
-            omzet: data.omzet || 0,
-            transaksiCount: data.transaksiCount || 0,
-            labaBersih: data.labaBersih || 0,
-            produkTerjualCount: data.produkTerjualCount || 0,
-            grafikHari: data.grafikHari || [],
-            grafikMinggu: data.grafikMinggu || [],
-            grafikBulan: data.grafikBulan || [],
-            produkTerlaris: data.produkTerlaris || []
-          },
-          isLoading: false 
-        });
-      } else {
-        set({ isLoading: false });
-      }
-    }, () => set({ isLoading: false }));
+    get().syncOfflineTransactions();
   },
 
-  updateProfile: async (namaToko, pemilik) => {
-    const profileRef = doc(db, 'settings', 'profile');
-    await setDoc(profileRef, { namaToko, pemilik }, { merge: true });
+  setKasirAktif: (namaKasir) => set({ kasirAktif: namaKasir }),
+
+  addKasirDinamis: async (namaKasir) => {
+    const bersihNama = namaKasir.trim();
+    if (!bersihNama) return;
+    const { daftarKasir } = get();
+    if (daftarKasir.includes(bersihNama)) return;
+    const barulist = [...daftarKasir, bersihNama];
+    set({ daftarKasir: barulist });
+    await setDoc(doc(db, 'settings', 'cashiers'), { list: barulist }, { merge: true });
+  },
+
+  getAIPredictiveStock: () => {
+    const { allTransactions, products } = get();
+    let jumlahHariOperasional = 1;
+    if (allTransactions.length > 1) {
+      const times = allTransactions.map(t => new Date(t.waktuTransaksi).getTime());
+      const minTime = Math.min(...times);
+      const maxTime = Math.max(...times);
+      const diffDays = Math.ceil((maxTime - minTime) / (1000 * 60 * 60 * 24));
+      jumlahHariOperasional = diffDays > 0 ? diffDays : 1;
+    }
+
+    const itemQtyMap: { [key: string]: number } = {};
+    allTransactions.forEach(tx => {
+      if (tx.items) {
+        tx.items.forEach(it => {
+          itemQtyMap[it.nama] = (itemQtyMap[it.nama] || 0) + it.qty;
+        });
+      }
+    });
+
+    return products.map(product => {
+      const totalTerjual = itemQtyMap[product.nama] || 0;
+      const avgTerjualPerHari = Number((totalTerjual / jumlahHariOperasional).toFixed(2));
+      
+      let estimasiHariHabis = 999;
+      if (avgTerjualPerHari > 0) {
+        estimasiHariHabis = Number((product.stok / avgTerjualPerHari).toFixed(1));
+      } else if (product.stok === 0) {
+        estimasiHariHabis = 0;
+      }
+
+      let rekomendasiOrder = 0;
+      if (estimasiHariHabis <= 3) {
+        rekomendasiOrder = Math.max(Math.ceil(avgTerjualPerHari * 14) - product.stok, 10);
+      }
+
+      let statusKritis: 'AMAN' | 'PERINGATAN' | 'KRITIS' = 'AMAN';
+      if (estimasiHariHabis <= 1.5) statusKritis = 'KRITIS';
+      else if (estimasiHariHabis <= 4) statusKritis = 'PERINGATAN';
+
+      return {
+        id: product.id,
+        nama: product.nama,
+        sisaStok: product.stok,
+        satuan: product.satuan || 'Pcs',
+        avgTerjualPerHari,
+        estimasiHariHabis,
+        rekomendasiOrder,
+        statusKritis
+      };
+    }).sort((a,b) => a.estimasiHariHabis - b.estimasiHariHabis);
+  },
+
+  getAIMarginInsights: () => {
+    const { allTransactions, products } = get();
+    const productSalesMap: { [key: string]: { qty: number; profit: number } } = {};
+    let totalProfitRuko = 0;
+
+    allTransactions.forEach(tx => {
+      if (tx.items) {
+        tx.items.forEach(item => {
+          const original = products.find(p => p.nama === item.nama || p.id === item.id);
+          const modalSatuan = original ? original.hargaModal : Math.round(item.harga * 0.5);
+          const untungSatuan = item.harga - modalSatuan;
+          const untungTotalNotaItem = untungSatuan * item.qty;
+
+          totalProfitRuko += untungTotalNotaItem;
+
+          if (productSalesMap[item.nama]) {
+            productSalesMap[item.nama].qty += item.qty;
+            productSalesMap[item.nama].profit += untungTotalNotaItem;
+          } else {
+            productSalesMap[item.nama] = { qty: item.qty, profit: untungTotalNotaItem };
+          }
+        });
+      }
+    });
+
+    const arraySales = Object.values(productSalesMap);
+    const avgQty = arraySales.length > 0 ? arraySales.reduce((s, i) => s + i.qty, 0) / arraySales.length : 5;
+    const avgProfit = arraySales.length > 0 ? arraySales.reduce((s, i) => s + i.profit, 0) / arraySales.length : 50000;
+
+    return Object.keys(productSalesMap).map(nama => {
+      const sales = productSalesMap[nama];
+      const kontribusiPersen = totalProfitRuko > 0 ? Number(((sales.profit / totalProfitRuko) * 100).toFixed(1)) : 0;
+      
+      let kuadranStatus: AIMarginInsight['kuadranStatus'] = 'SLOW MOVER (Kurang Peminat)';
+      let rekomendasiStrategi = "Promosikan bundle item atau pertimbangkan eliminasi menu.";
+
+      if (sales.qty >= avgQty && sales.profit >= avgProfit) {
+        kuadranStatus = 'STAR (Laris & Untung Gede)';
+        rekomendasiStrategi = "Pertahankan kualitas ketersediaan stok! Jadikan ikon utama iklan tokomu.";
+      } else if (sales.qty < avgQty && sales.profit >= avgProfit) {
+        kuadranStatus = 'CASH COW (Untung Gede tapi Slow)';
+        rekomendasiStrategi = "Gencarkan diskon komplementer atau turunkan sedikit harga biar volume melesat naik.";
+      } else if (sales.qty >= avgQty && sales.profit < avgProfit) {
+        kuadranStatus = 'VOLUME BOOSTER (Laris tapi Tipis)';
+        rekomendasiStrategi = "Naikkan harga jual pelan-pelan atau nego ulang ke supplier untuk memotong harga modal.";
+      }
+
+      return {
+        nama,
+        totalQtyTerjual: sales.qty,
+        totalProfitBersih: sales.profit,
+        kontribusiPersen,
+        kuadranStatus,
+        rekomendasiStrategi
+      };
+    }).sort((a,b) => b.totalProfitBersih - a.totalProfitBersih);
+  },
+
+  getComputedDashboard: () => {
+    const { allTransactions, kasirAktif } = get();
+    const txKasir = allTransactions.filter(tx => tx.kasirId === kasirAktif);
+
+    let omzet = 0;
+    let labaBersih = 0;
+    let produkTerjualCount = 0;
+    const jamMap: { [key: string]: number } = { '08': 0, '12': 0, '16': 0, '20': 0 };
+    const larisMap: { [key: string]: number } = {};
+
+    txKasir.forEach(tx => {
+      omzet += tx.totalHarga;
+      labaBersih += tx.labaBersih;
+      try {
+        const jam = new Date(tx.waktuTransaksi).getHours();
+        let label = '20';
+        if (jam < 10) label = '08';
+        else if (jam < 14) label = '12';
+        else if (jam < 18) label = '16';
+        jamMap[label] += tx.totalHarga;
+      } catch (e) {}
+
+      if (tx.items) {
+        tx.items.forEach(item => {
+          produkTerjualCount += item.qty;
+          larisMap[item.nama] = (larisMap[item.nama] || 0) + item.qty;
+        });
+      }
+    });
+
+    return {
+      omzet,
+      transaksiCount: txKasir.length,
+      labaBersih,
+      produkTerjualCount,
+      grafikHari: Object.keys(jamMap).map(k => ({ label: k, value: jamMap[k] })),
+      produkTerlaris: Object.keys(larisMap).map(k => ({ nama: k, terjual: larisMap[k] })).sort((a,b) => b.terjual - a.terjual).slice(0, 5)
+    };
+  },
+
+  updateProfile: async (namaToko) => {
+    await setDoc(doc(db, 'settings', 'profile'), { namaToko }, { merge: true });
+  },
+
+  resetDataToko: async () => {
+    const { allTransactions } = get();
+    localStorage.removeItem('offline_transactions_queue');
+    await Promise.all(allTransactions.map(t => t.id ? deleteDoc(doc(db, 'transactions', t.id)) : Promise.resolve()));
+    set({ cart: [] });
   },
   
   togglePaymentMethod: async (id) => {
-    const updatedMethods = get().paymentMethods.map(m => m.id === id ? { ...m, isActive: !m.isActive } : m);
-    set({ paymentMethods: updatedMethods });
-    const paymentRef = doc(db, 'settings', 'payment_methods');
-    await setDoc(paymentRef, { methods: updatedMethods }, { merge: true });
+    const updated = get().paymentMethods.map(m => m.id === id ? { ...m, isActive: !m.isActive } : m);
+    set({ paymentMethods: updated });
+    await setDoc(doc(db, 'settings', 'payment_methods'), { methods: updated }, { merge: true });
   },
 
   updatePaymentDetails: async (id, details) => {
-    const updatedMethods = get().paymentMethods.map(m => m.id === id ? { ...m, details } : m);
-    set({ paymentMethods: updatedMethods });
-    const paymentRef = doc(db, 'settings', 'payment_methods');
-    await setDoc(paymentRef, { methods: updatedMethods }, { merge: true });
+    const updated = get().paymentMethods.map(m => m.id === id ? { ...m, details } : m);
+    set({ paymentMethods: updated });
+    await setDoc(doc(db, 'settings', 'payment_methods'), { methods: updated }, { merge: true });
   },
 
   addProduct: async (product) => {
-    const productRef = doc(collection(db, 'products'));
-    const productWithGeneratedId = { 
-      ...product, 
-      id: productRef.id,
-      hargaJual: Number(product.hargaJual),
-      hargaModal: Number(product.hargaModal),
-      stok: Number(product.stok)
-    };
-    await setDoc(productRef, productWithGeneratedId);
+    try {
+      const productsCollectionRef = collection(db, 'products');
+      const newProductDocRef = doc(productsCollectionRef);
+      const { id, ...pureProductData } = product;
+      
+      const safeProductWithGeneratedId = { 
+        ...pureProductData, 
+        id: newProductDocRef.id,
+        hargaJual: Number(product.hargaJual || 0),
+        hargaModal: Number(product.hargaModal || 0),
+        stok: Number(product.stok || 0),
+        sku: product.sku ? product.sku.trim() : `SKU-${Date.now()}`
+      };
+      await setDoc(newProductDocRef, safeProductWithGeneratedId);
+    } catch (error) {
+      console.error("Gagal menambahkan produk:", error);
+      throw error;
+    }
   },
 
-  // PENANGANAN UPDATE PRODUK KE FIRESTORE
-  updateProduct: async (id, updatedData) => {
-    const productRef = doc(db, 'products', id);
-    const safeData = { ...updatedData };
-    if (safeData.hargaJual !== undefined) safeData.hargaJual = Number(safeData.hargaJual);
-    if (safeData.hargaModal !== undefined) safeData.hargaModal = Number(safeData.hargaModal);
-    if (safeData.stok !== undefined) safeData.stok = Number(safeData.stok);
-    
-    await updateDoc(productRef, safeData);
-  },
-
-  // PENANGANAN HAPUS PRODUK DARI FIRESTORE
-  deleteProduct: async (id) => {
-    const productRef = doc(db, 'products', id);
-    await deleteDoc(productRef);
-  },
+  updateProduct: async (id, data) => { await updateDoc(doc(db, 'products', id), data); },
+  deleteProduct: async (id) => { await deleteDoc(doc(db, 'products', id)); },
+  updateStock: async (id, n) => { await updateDoc(doc(db, 'products', id), { stok: Number(n) }); },
   
-  updateStock: async (id, newStock) => {
-    const productRef = doc(db, 'products', id);
-    await updateDoc(productRef, { stok: Number(newStock) });
-  },
-  
+  // ACTION METHOD UTK KASIR (KERANJANG BELANJA)
   addToCart: (product) => set((state) => {
     if (product.stok <= 0) return {};
     const existingIndex = state.cart.findIndex(item => item.id === product.id);
@@ -293,7 +451,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     return { cart: [...state.cart, { ...product, quantity: 1 }] };
   }),
 
-  removeFromCart: (id) => set((state) => ({ cart: state.cart.filter(item => item.id !== id) })),
+  removeFromCart: (id) => set((s) => ({ cart: s.cart.filter(i => i.id !== id) })),
 
   updateCartQuantity: (id, action) => set((state) => {
     const newCart = state.cart.map((item) => {
@@ -312,21 +470,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   clearCart: () => set({ cart: [] }),
 
   checkout: async (paymentMethod, uangDiterima) => {
-    const { cart, dashboardData } = get();
+    const { cart, kasirAktif, isOnline, products } = get();
     let totalHarga = cart.reduce((sum, item) => sum + (item.hargaJual * item.quantity), 0);
     let totalModal = cart.reduce((sum, item) => sum + (item.hargaModal * item.quantity), 0);
-    let totalItemTerjual = cart.reduce((sum, item) => sum + item.quantity, 0);
 
     const actualUangDiterima = paymentMethod === 'tunai' ? uangDiterima : totalHarga;
-
-    if (actualUangDiterima < totalHarga) {
-      return "Uang yang diterima kurang dari total belanjaan!";
-    }
-
+    if (actualUangDiterima < totalHarga) return "Uang yang diterima kurang!";
     const kembalian = actualUangDiterima - totalHarga;
 
-    const transactionRef = collection(db, 'transactions');
-    await addDoc(transactionRef, {
+    const newTxDoc: TransactionDoc = {
       waktuTransaksi: new Date().toISOString(),
       items: cart.map(i => ({ id: i.id, nama: i.nama, qty: i.quantity, harga: i.hargaJual })),
       totalHarga: Number(totalHarga),
@@ -334,49 +486,49 @@ export const useAppStore = create<AppState>((set, get) => ({
       labaBersih: Number(totalHarga - totalModal),
       paymentMethod,
       uangDiterima: Number(actualUangDiterima),
-      kembalian: Number(kembalian)
-    });
+      kembalian: Number(kembalian),
+      kasirId: kasirAktif
+    };
 
-    for (const item of cart) {
-      const productRef = doc(db, 'products', item.id);
-      await updateDoc(productRef, {
-        stok: Number(Math.max(0, item.stok - item.quantity))
-      });
+    if (!isOnline) {
+      const q = JSON.parse(localStorage.getItem('offline_transactions_queue') || '[]');
+      localStorage.setItem('offline_transactions_queue', JSON.stringify([newTxDoc, ...q]));
+      set({ products: products.map(p => { const c = cart.find(i => i.id === p.id); return c ? { ...p, stok: Math.max(0, p.stok - c.quantity) } : p; }), cart: [] });
+      return { kembalian };
     }
 
-    const currentHour = new Date().getHours();
-    let timeLabel = '20';
-    if (currentHour < 10) timeLabel = '08';
-    else if (currentHour < 14) timeLabel = '12';
-    else if (currentHour < 18) timeLabel = '16';
+    try {
+      await addDoc(collection(db, 'transactions'), newTxDoc);
+      for (const item of cart) { await updateDoc(doc(db, 'products', item.id), { stok: Number(Math.max(0, item.stok - item.quantity)) }); }
+      set({ cart: [] });
+      return { kembalian };
+    } catch {
+      const q = JSON.parse(localStorage.getItem('offline_transactions_queue') || '[]');
+      localStorage.setItem('offline_transactions_queue', JSON.stringify([newTxDoc, ...q]));
+      set({ cart: [] });
+      return { kembalian };
+    }
+  },
 
-    const updatedGrafikHari = (dashboardData.grafikHari || []).map(p => 
-      p.label === timeLabel ? { ...p, value: p.value + totalHarga } : p
-    );
-
-    const updatedProdukTerlaris = [...(dashboardData.produkTerlaris || [])];
-    cart.forEach(cartItem => {
-      const found = updatedProdukTerlaris.find(p => p.nama === cartItem.nama);
-      if (found) {
-        found.terjual += cartItem.quantity;
-      } else {
-        updatedProdukTerlaris.push({ nama: cartItem.nama, terjual: cartItem.quantity });
+  syncOfflineTransactions: async () => {
+    const { isOnline } = get();
+    if (!isOnline) return;
+    const q: TransactionDoc[] = JSON.parse(localStorage.getItem('offline_transactions_queue') || '[]');
+    if (q.length === 0) return;
+    const ref = collection(db, 'transactions');
+    for (let i = q.length - 1; i >= 0; i--) {
+      try {
+        await addDoc(ref, q[i]);
+        for (const it of q[i].items) {
+          const pRef = doc(db, 'products', it.id);
+          const sn = await getDoc(pRef);
+          if (sn.exists()) await updateDoc(pRef, { stok: Math.max(0, Number(sn.data().stok || 0) - it.qty) });
+        }
+      } catch {
+        localStorage.setItem('offline_transactions_queue', JSON.stringify(q.slice(0, i + 1)));
+        return;
       }
-    });
-
-    const dashboardRef = doc(db, 'dashboard', 'summary');
-    await setDoc(dashboardRef, {
-      omzet: Number(dashboardData.omzet + totalHarga),
-      labaBersih: Number(dashboardData.labaBersih + (totalHarga - totalModal)),
-      transaksiCount: Number(dashboardData.transaksiCount + 1),
-      produkTerjualCount: Number(dashboardData.produkTerjualCount + totalItemTerjual),
-      grafikHari: updatedGrafikHari,
-      grafikMinggu: dashboardData.grafikMinggu || [],
-      grafikBulan: dashboardData.grafikBulan || [],
-      produkTerlaris: updatedProdukTerlaris.sort((a,b) => b.terjual - a.terjual).slice(0, 5)
-    }, { merge: true });
-
-    set({ cart: [] });
-    return { kembalian };
+    }
+    localStorage.removeItem('offline_transactions_queue');
   }
 }));
