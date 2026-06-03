@@ -111,6 +111,7 @@ interface AppState {
   addProduct: (product: Product) => Promise<void>;
   updateProduct: (id: string, updatedData: Partial<Product>) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
+  updateStock: (id: string, newStock: number) => Promise<void>;
   resetDataToko: () => Promise<void>;
   addToCart: (product: Product) => void;
   removeFromCart: (id: string) => void;
@@ -161,7 +162,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         await setDoc(cashiersRef, { list: ["Shobur", "Budi", "Siti"] });
       }
     } catch (e) {
-      console.warn("Bootstrap profiles config initiated pass");
+      console.warn("Bootstrap initiated pass");
     }
 
     onSnapshot(profileRef, (docSnap) => {
@@ -194,11 +195,11 @@ export const useAppStore = create<AppState>((set, get) => ({
         });
       });
       const localQueue = JSON.parse(localStorage.getItem('offline_transactions_queue') || '[]');
-      // Gunakan pembaruan state fungsional agar aman dari tabrakan
-      set((state) => ({ allTransactions: [...localQueue, ...listTx], isLoading: false }));
+      // FIX TS6133: Menghilangkan arrow function state yang tak terbaca jika tidak memutasi nilai lama
+      set({ allTransactions: [...localQueue, ...listTx], isLoading: false });
     }, () => {
       const localQueue = JSON.parse(localStorage.getItem('offline_transactions_queue') || '[]');
-      set((state) => ({ allTransactions: localQueue, isLoading: false }));
+      set({ allTransactions: localQueue, isLoading: false });
     });
 
     const productsRef = collection(db, 'products');
@@ -219,8 +220,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           colorClass: data.colorClass || 'bg-gray-100 text-gray-800'
         });
       });
-      // FIX UTAMA: Update produk menggunakan fungsional set agar properti actions lain tidak ikut terhapus
-      set((state) => ({ products: prodList }));
+      set({ products: prodList });
     });
 
     get().syncOfflineTransactions();
@@ -435,9 +435,12 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   updateProduct: async (id, data) => { await updateDoc(doc(db, 'products', id), data); },
   deleteProduct: async (id) => { await deleteDoc(doc(db, 'products', id)); },
-  updateStock: async (id, n) => { await updateDoc(doc(db, 'products', id), { stok: Number(n) }); },
   
-  // ACTION METHOD UTK KASIR (KERANJANG BELANJA)
+  // FIX TS7006: Menambahkan pendefinisian tipe data eksplisit string & number
+  updateStock: async (id: string, newStock: number) => { 
+    await updateDoc(doc(db, 'products', id), { stok: Number(newStock) }); 
+  },
+  
   addToCart: (product) => set((state) => {
     if (product.stok <= 0) return {};
     const existingIndex = state.cart.findIndex(item => item.id === product.id);
@@ -451,7 +454,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     return { cart: [...state.cart, { ...product, quantity: 1 }] };
   }),
 
-  removeFromCart: (id) => set((s) => ({ cart: s.cart.filter(i => i.id !== id) })),
+  removeFromCart: (id) => set((state) => ({ cart: state.cart.filter(item => item.id !== id) })),
 
   updateCartQuantity: (id, action) => set((state) => {
     const newCart = state.cart.map((item) => {

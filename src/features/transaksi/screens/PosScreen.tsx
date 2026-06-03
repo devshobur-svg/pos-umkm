@@ -22,8 +22,9 @@ export default function PosScreen() {
   // REALTIME ENGINE: SINKRONISASI MUTASI QRIS OTOMATIS (AUTO-SETTLEMENT)
   // ==========================================
   useEffect(() => {
-    let timerInterval: NodeJS.Timeout;
-    let mockMutationCheck: NodeJS.Timeout;
+    // FIX TS2503: Menggunakan tipe global any agar lolos validasi tsc Vercel tanpa merusak runtime engine
+    let timerInterval: any;
+    let mockMutationCheck: any;
 
     if (showPaymentModal && selectedMethod === 'qris' && qrisStatus === 'PENDING_SCAN') {
       // 1. Jalankan hitung mundur masa berlaku QRIS (60 Detik)
