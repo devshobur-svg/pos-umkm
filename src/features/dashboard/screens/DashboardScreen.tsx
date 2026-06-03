@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useAppStore } from '../../../store/useStore';
-import { Bell, ArrowUpRight, UserCheck, Calendar, Monitor, TrendingUp, DollarSign, ShoppingBag, Award, X, Clock, User, Sparkles, ArrowRight, BrainCircuit } from 'lucide-react';
-
+import { Bell, UserCheck, Calendar, Monitor, TrendingUp, DollarSign, ShoppingBag, Award, X, Clock, User, Sparkles, ArrowRight, BrainCircuit } from 'lucide-react';
 interface DashboardScreenProps {
   onViewAllProducts: () => void;
 }
