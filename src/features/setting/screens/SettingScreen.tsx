@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../../../store/useStore';
-import { Share2, Clipboard, ShieldCheck, Store, FileText, CheckCircle, RotateCcw, AlertTriangle, UserPlus, Users } from 'lucide-react';
+import { ShieldCheck, Store, FileText, RotateCcw, UserPlus, Users } from 'lucide-react';
 
 export default function SettingScreen() {
   const { namaToko, updateProfile, paymentMethods, resetDataToko, kasirAktif, daftarKasir, addKasirDinamis, allTransactions, products } = useAppStore();

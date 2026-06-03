@@ -1,5 +1,5 @@
 import { useAppStore } from '../../../store/useStore';
-import { BrainCircuit, AlertTriangle, CheckCircle, HelpCircle, Sparkles, TrendingUp, ShieldAlert, ArrowRight } from 'lucide-react';
+import { BrainCircuit, Sparkles, TrendingUp, ShieldAlert, ArrowRight } from 'lucide-react';
 
 export default function AISmartInsightScreen() {
   const { getAIPredictiveStock, getAIMarginInsights } = useAppStore();

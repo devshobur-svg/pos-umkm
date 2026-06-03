@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAppStore } from '../../../store/useStore';
-import { Bell, ArrowUpRight, UserCheck, Calendar, Monitor, TrendingUp, DollarSign, ShoppingBag, Award, X, Clock, User, CreditCard, Sparkles, ShieldAlert, ArrowRight, BrainCircuit } from 'lucide-react';
+import { Bell, ArrowUpRight, UserCheck, Calendar, Monitor, TrendingUp, DollarSign, ShoppingBag, Award, X, Clock, User, Sparkles, ArrowRight, BrainCircuit } from 'lucide-react';
 
 interface DashboardScreenProps {
   onViewAllProducts: () => void;
@@ -173,7 +173,7 @@ export default function DashboardScreen({ onViewAllProducts }: DashboardScreenPr
                   <span className="text-[11px] font-black text-gray-900 bg-gray-50 border px-2 py-0.5 rounded-lg">{item.terjual} Pcs</span>
                 </div>
               ))
-) : (
+            ) : (
               <div className="text-center text-xs text-gray-400 py-10">Belum ada nota masuk.</div>
             )}
           </div>
