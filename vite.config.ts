@@ -1,23 +1,22 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite'
-import { VitePWA } from 'vite-plugin-pwa'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import { VitePWA } from 'vite-plugin-pwa'; // <-- Tetap pakai VitePWA, tapi sumbernya dari 'vite-plugin-pwa'
 
 export default defineConfig({
   plugins: [
     react(),
-    tailwindcss(), // Mengintegrasikan kompilator Tailwind langsung ke pipeline Vite
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
+      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
       manifest: {
-        name: 'POS UMKM Pintar',
-        short_name: 'POS-UMKM',
-        description: 'Aplikasi Kasir dan Manajemen Stok Khas UMKM Indonesia',
-        theme_color: '#047857', // Menggunakan warna emerald-700 sesuai UI
-        background_color: '#FFFFFF',
+        name: 'Wallet Aing POS',
+        short_name: 'WalletAing',
+        description: 'Sistem Mesin Kasir POS PWA Modern untuk Retail Ruko',
+        theme_color: '#047857',
+        background_color: '#ffffff',
         display: 'standalone',
         orientation: 'portrait',
+        start_url: '/',
         icons: [
           {
             src: 'pwa-192x192.png',
@@ -36,7 +35,23 @@ export default defineConfig({
             purpose: 'any maskable'
           }
         ]
+      },
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/firestore\.googleapis\.com\/.*$/,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'firebase-firestore-cache',
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 60 * 60 * 24 * 30
+              }
+            }
+          }
+        ]
       }
     })
   ]
-})
+});
