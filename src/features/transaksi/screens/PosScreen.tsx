@@ -64,7 +64,6 @@ export default function PosScreen() {
   // REALTIME ENGINE: SINKRONISASI MUTASI QRIS OTOMATIS (AUTO-SETTLEMENT)
   // ==========================================
   useEffect(() => {
-    // FIX TS2503: Menggunakan tipe global any agar lolos validasi tsc Vercel tanpa merusak runtime engine
     let timerInterval: any;
     let mockMutationCheck: any;
 
@@ -82,19 +81,20 @@ export default function PosScreen() {
       }, 1000);
 
       // 2. Simulasi Webhook Mutasi Masuk: Dana Terdeteksi Lunas dalam 6 Detik
-      mockMutationCheck = setTimeout(() => {
-        setQrisStatus('SETTLED');
-        clearInterval(timerInterval);
-
-        // Feedback sensorik sukses mutasi masuk dari cloud
-        if (navigator.vibrate) navigator.vibrate([50, 40, 50]);
-        playSensorySound('success');
-
-        const itemsSnapshot = cart.map(i => ({ nama: i.nama, qty: i.quantity, harga: i.hargaJual }));
-        
-        // Eksekusi checkout otomatis tanpa kasir perlu klik tombol konfirmasi lagi
-        checkout('qris', totalBelanja).then((result) => {
+      mockMutationCheck = setTimeout(async () => {
+        try {
+          const itemsSnapshot = cart.map(i => ({ nama: i.nama, qty: i.quantity, harga: i.hargaJual }));
+          
+          // Eksekusi checkout otomatis dengan penanganan await kokoh
+          const result = await checkout('qris', totalBelanja);
+          
           if (typeof result !== 'string') {
+            setQrisStatus('SETTLED');
+            clearInterval(timerInterval);
+
+            if (navigator.vibrate) navigator.vibrate([50, 40, 50]);
+            playSensorySound('success');
+
             setSuccessMessage({
               kembalian: 0,
               invoiceItems: itemsSnapshot,
@@ -102,7 +102,6 @@ export default function PosScreen() {
               bayar: totalBelanja
             });
             
-            // 100% CLEAN: Di sini properti 'payar' sudah dibuang total!
             handlePrintReceipt({
               items: itemsSnapshot,
               total: totalBelanja,
@@ -111,7 +110,9 @@ export default function PosScreen() {
               method: 'qris'
             });
           }
-        });
+        } catch (err) {
+          console.error("Gagal checkout QRIS otomatis:", err);
+        }
       }, 6000); 
     }
 
@@ -231,7 +232,8 @@ export default function PosScreen() {
     doc.close();
   };
 
-  const handleProcessCheckout = (e: React.FormEvent) => {
+  // Eksekusi Simpan Nota Cash (FIX STUCK LOADING PRODUCTION)
+  const handleProcessCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
     setIsSubmitting(true);
@@ -239,13 +241,12 @@ export default function PosScreen() {
     const cashInput = parseInt(nominalBayar) || 0;
     const itemsSnapshot = cart.map(i => ({ nama: i.nama, qty: i.quantity, harga: i.hargaJual }));
 
-    checkout('tunai', cashInput).then((result) => {
-      setIsSubmitting(false);
+    try {
+      const result = await checkout('tunai', cashInput);
       
       if (typeof result === 'string') {
         setErrorMessage(result);
       } else {
-        // Feedback sensorik sukses simpan transaksi tunai harian
         if (navigator.vibrate) navigator.vibrate([50, 40, 50]);
         playSensorySound('success');
 
@@ -265,11 +266,12 @@ export default function PosScreen() {
           method: 'tunai'
         });
       }
-    }).catch((err) => {
-      setIsSubmitting(false);
+    } catch (err) {
       setErrorMessage("Terjadi kesalahan jaringan Firebase!");
       console.error(err);
-    });
+    } finally {
+      setIsSubmitting(false); // Blok ini dijamin dieksekusi browser apa pun hasil dari cloud
+    }
   };
 
   const closeSuccessPopup = () => {

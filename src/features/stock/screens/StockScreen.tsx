@@ -59,32 +59,39 @@ export default function StockScreen() {
     }
   };
 
-  // Eksekusi Update ke Firestore
-  const handleUpdateSubmit = (e: React.FormEvent) => {
+  // Eksekusi Update ke Firestore (FIX STUCK LOADING PRODUCTION)
+  const handleUpdateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingProduct) return;
 
     setIsSubmitting(true);
-    updateProduct(editingProduct.id, {
-      nama: editNama.trim(),
-      hargaJual: parseInt(editHargaJual) || 0,
-      hargaModal: parseInt(editHargaModal) || 0,
-      stok: parseInt(editStok) || 0,
-      satuan: editSatuan,
-      imageLetter: editImage
-    }).then(() => {
-      setIsSubmitting(false);
+    try {
+      await updateProduct(editingProduct.id, {
+        nama: editNama.trim(),
+        hargaJual: parseInt(editHargaJual) || 0,
+        hargaModal: parseInt(editHargaModal) || 0,
+        stok: parseInt(editStok) || 0,
+        satuan: editSatuan,
+        imageLetter: editImage
+      });
       setEditingProduct(null);
       triggerToast('Produk Berhasil Diperbarui!');
-    });
+    } catch (err) {
+      console.error("Gagal update produk di production:", err);
+    } finally {
+      setIsSubmitting(false); // Dijamin 100% mati meskipun state komponen ter-render ulang
+    }
   };
 
-  // Eksekusi Hapus dari Firestore
-  const handleDeleteClick = (id: string) => {
+  // Eksekusi Hapus dari Firestore (FIX STUCK LOADING PRODUCTION)
+  const handleDeleteClick = async (id: string) => {
     if (window.confirm("Apakah kamu yakin ingin menghapus produk ini dari etalase ruko?")) {
-      deleteProduct(id).then(() => {
+      try {
+        await deleteProduct(id);
         triggerToast('Produk Telah Dihapus!');
-      });
+      } catch (err) {
+        console.error("Gagal menghapus produk di production:", err);
+      }
     }
   };
 
