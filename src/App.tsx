@@ -1,23 +1,64 @@
 import { useState, useEffect } from 'react';
-import { LayoutDashboard, Box, PlusCircle, ShoppingCart, Menu, Loader2, WifiOff, Wifi } from 'lucide-react';
+import { LayoutDashboard, Box, PlusCircle, ShoppingCart, Menu, Loader2, WifiOff, Wifi, X } from 'lucide-react';
 import { useAppStore } from './store/useStore';
 import DashboardScreen from './features/dashboard/screens/DashboardScreen';
-import StockScreen from './features/stock/screens/StockScreen';
+import StockScreen from './features/stock/screens/StockScreen'; // FIXED: Kembali ke folder 'stock' sesuai struktur ruko kamu
 import PosScreen from './features/transaksi/screens/PosScreen';
 import SettingScreen from './features/setting/screens/SettingScreen';
 import AddProductForm from './features/stock/components/AddProductForm';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const { initAppSync, isLoading, isOnline } = useAppStore();
+  const { initAppSync, isLoading, isOnline, networkToast, closeNetworkToast } = useAppStore();
 
   useEffect(() => {
     initAppSync();
-  }, []);
+  }, [initAppSync]);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col w-full relative">
       
+      {/* ==========================================
+          MIKRO-INTERAKSI: FLOATING NETWORK TOAST NOTIFICATION
+          ========================================== */}
+      {networkToast.show && (
+        <div className="fixed top-4 inset-x-0 mx-auto z-[9999] px-4 w-full max-w-sm animate-slideDown">
+          <div 
+            className={`w-full rounded-2xl p-3.5 shadow-xl border flex items-center justify-between gap-3 backdrop-blur-md transition-all ${
+              networkToast.type === 'online' 
+                ? 'bg-emerald-900/95 border-emerald-500/30 text-emerald-50' 
+                : 'bg-gray-900/95 border-gray-700/40 text-gray-100'
+            }`}
+          >
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <div 
+                className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border shadow-inner ${
+                  networkToast.type === 'online' 
+                    ? 'bg-emerald-500/20 border-emerald-400/20 text-emerald-400' 
+                    : 'bg-rose-500/20 border-rose-400/20 text-rose-400 animate-pulse'
+                }`}
+              >
+                {networkToast.type === 'online' ? <Wifi size={14} /> : <WifiOff size={14} />}
+              </div>
+              
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] font-black tracking-tight leading-snug">
+                  {networkToast.message}
+                </p>
+              </div>
+            </div>
+
+            <button 
+              type="button"
+              onClick={closeNetworkToast}
+              className="p-1 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors shrink-0"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* BAR INDIKATOR JARINGAN INTERNET OFFLINE / ONLINE RUKO */}
       {!isOnline ? (
         <div className="w-full bg-rose-600 text-white text-[11px] font-black py-1.5 px-4 flex items-center justify-center gap-2 shadow-inner animate-pulse z-50">

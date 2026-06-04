@@ -89,6 +89,13 @@ export interface AIMarginInsight {
   rekomendasiStrategi: string;
 }
 
+// SENSORY INTERACTION: Toast State Interface
+export interface NetworkToastState {
+  show: boolean;
+  type: 'online' | 'offline' | 'idle';
+  message: string;
+}
+
 interface AppState {
   namaToko: string;
   kasirAktif: string;
@@ -99,6 +106,8 @@ interface AppState {
   allTransactions: TransactionDoc[];
   isLoading: boolean;
   isOnline: boolean;
+  networkToast: NetworkToastState; // State untuk interaksi pop-up jaringan
+  closeNetworkToast: () => void;
   initAppSync: () => Promise<void>;
   setKasirAktif: (namaKasir: string) => void;
   addKasirDinamis: (namaKasir: string) => Promise<void>;
@@ -135,16 +144,50 @@ export const useAppStore = create<AppState>((set, get) => ({
     { id: 'qris', nama: 'QRIS Dinamis', isActive: true, details: 'Gopay, OVO, Dana, LinkAja' },
     { id: 'transfer', nama: 'Transfer Bank', isActive: false, details: 'BCA - 1234567890' }
   ],
+  networkToast: { show: false, type: 'idle', message: '' },
+
+  closeNetworkToast: () => set({ networkToast: { show: false, type: 'idle', message: '' } }),
 
   initAppSync: async () => {
     set({ isLoading: true });
     
+    // MIKRO-INTERAKSI SENSORIK LISTENER JARINGAN BROWSER
     if (typeof window !== 'undefined') {
       window.addEventListener('online', () => {
-        set({ isOnline: true });
+        // 1. Trigger Haptic Getar Sukses Native PWA
+        if (navigator.vibrate) navigator.vibrate([40, 40, 40]);
+        
+        // 2. Set State & Munculkan Banner Hijau Ceria
+        set({ 
+          isOnline: true,
+          networkToast: { 
+            show: true, 
+            type: 'online', 
+            message: '✨ Kembali Online! Sinkronisasi cloud ruko berhasil diselaraskan.' 
+          }
+        });
+        
+        // 3. Jalankan pengosongan antrean data transaksi offline otomatis
         get().syncOfflineTransactions();
+        
+        // Auto-close banner toast dalam 3.5 detik
+        setTimeout(() => get().closeNetworkToast(), 3500);
       });
-      window.addEventListener('offline', () => set({ isOnline: false }));
+
+      window.addEventListener('offline', () => {
+        // 1. Trigger Haptic Getar Peringatan Keras
+        if (navigator.vibrate) navigator.vibrate(120);
+
+        // 2. Set State & Munculkan Banner Abu-Abu Peringatan
+        set({ 
+          isOnline: false,
+          networkToast: { 
+            show: true, 
+            type: 'offline', 
+            message: '⚠️ Sinyal Putus. Sistem otomatis mengaktifkan mode kebal offline!' 
+          }
+        });
+      });
     }
 
     const profileRef = doc(db, 'settings', 'profile');
@@ -195,7 +238,6 @@ export const useAppStore = create<AppState>((set, get) => ({
         });
       });
       const localQueue = JSON.parse(localStorage.getItem('offline_transactions_queue') || '[]');
-      // FIX TS6133: Menghilangkan arrow function state yang tak terbaca jika tidak memutasi nilai lama
       set({ allTransactions: [...localQueue, ...listTx], isLoading: false });
     }, () => {
       const localQueue = JSON.parse(localStorage.getItem('offline_transactions_queue') || '[]');
@@ -436,7 +478,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   updateProduct: async (id, data) => { await updateDoc(doc(db, 'products', id), data); },
   deleteProduct: async (id) => { await deleteDoc(doc(db, 'products', id)); },
   
-  // FIX TS7006: Menambahkan pendefinisian tipe data eksplisit string & number
   updateStock: async (id: string, newStock: number) => { 
     await updateDoc(doc(db, 'products', id), { stok: Number(newStock) }); 
   },

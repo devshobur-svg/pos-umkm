@@ -19,6 +19,48 @@ export default function PosScreen() {
   const activeMethods = paymentMethods.filter(m => m.isActive);
 
   // ==========================================
+  // NATIVE AUDIO SYNTHESIZER ENGINE (Bebas Lag / Kebal Offline Tanpa File .mp3)
+  // ==========================================
+  const playSensorySound = (type: 'click' | 'success') => {
+    try {
+      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContext) return;
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      if (type === 'click') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, ctx.currentTime); // Nada Tinggi A5 renyah
+        gain.gain.setValueAtTime(0.04, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + 0.06);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.06);
+      } else if (type === 'success') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(523.25, ctx.currentTime); // Nada C5
+        osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.08); // Nada E5
+        gain.gain.setValueAtTime(0.12, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + 0.35);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.35);
+      }
+    } catch (e) {
+      console.warn("Audio Context blocked or unsupported");
+    }
+  };
+
+  // Wrapper interaksi ketukan menu produk
+  const handleAddToCartWithSensory = (product: any) => {
+    if (navigator.vibrate) navigator.vibrate(35); // Getar halus taktil di device mobile/tablet
+    playSensorySound('click');
+    addToCart(product);
+  };
+
+  // ==========================================
   // REALTIME ENGINE: SINKRONISASI MUTASI QRIS OTOMATIS (AUTO-SETTLEMENT)
   // ==========================================
   useEffect(() => {
@@ -43,6 +85,10 @@ export default function PosScreen() {
       mockMutationCheck = setTimeout(() => {
         setQrisStatus('SETTLED');
         clearInterval(timerInterval);
+
+        // Feedback sensorik sukses mutasi masuk dari cloud
+        if (navigator.vibrate) navigator.vibrate([50, 40, 50]);
+        playSensorySound('success');
 
         const itemsSnapshot = cart.map(i => ({ nama: i.nama, qty: i.quantity, harga: i.hargaJual }));
         
@@ -199,6 +245,10 @@ export default function PosScreen() {
       if (typeof result === 'string') {
         setErrorMessage(result);
       } else {
+        // Feedback sensorik sukses simpan transaksi tunai harian
+        if (navigator.vibrate) navigator.vibrate([50, 40, 50]);
+        playSensorySound('success');
+
         setSuccessMessage({
           kembalian: result.kembalian,
           invoiceItems: itemsSnapshot,
@@ -249,8 +299,9 @@ export default function PosScreen() {
             return (
               <button
                 key={product.id}
+                type="button"
                 disabled={isOutOfStock}
-                onClick={() => addToCart(product)}
+                onClick={() => handleAddToCartWithSensory(product)}
                 className={`flex items-center justify-between p-3.5 bg-white rounded-2xl border border-gray-100 shadow-sm transition-all text-left ${isOutOfStock ? 'opacity-40 cursor-not-allowed' : 'active:scale-[0.99] hover:border-emerald-300 hover:shadow-md'}`}
               >
                 <div className="flex items-center gap-3">
@@ -309,15 +360,15 @@ export default function PosScreen() {
                       Rp {subtotalItem.toLocaleString('id-ID')}
                     </span>
                     <div className="flex items-center bg-gray-50 rounded-lg p-0.5 border border-gray-200">
-                      <button onClick={() => updateCartQuantity(item.id, 'decrease')} className="p-1 hover:bg-white hover:shadow-sm rounded text-gray-500 transition-all">
+                      <button type="button" onClick={() => { if (navigator.vibrate) navigator.vibrate(20); playSensorySound('click'); updateCartQuantity(item.id, 'decrease'); }} className="p-1 hover:bg-white hover:shadow-sm rounded text-gray-500 transition-all">
                         <Minus size={11} />
                       </button>
                       <span className="text-xs font-black px-2 text-gray-800">{item.quantity}</span>
-                      <button onClick={() => updateCartQuantity(item.id, 'increase')} className="p-1 hover:bg-white hover:shadow-sm rounded text-gray-500 transition-all">
+                      <button type="button" onClick={() => { if (navigator.vibrate) navigator.vibrate(20); playSensorySound('click'); updateCartQuantity(item.id, 'increase'); }} className="p-1 hover:bg-white hover:shadow-sm rounded text-gray-500 transition-all">
                         <Plus size={11} />
                       </button>
                     </div>
-                    <button onClick={() => removeFromCart(item.id)} className="text-gray-300 hover:text-red-500 p-1 rounded-lg hover:bg-red-50 transition-colors">
+                    <button type="button" onClick={() => removeFromCart(item.id)} className="text-gray-300 hover:text-red-500 p-1 rounded-lg hover:bg-red-50 transition-colors">
                       <Trash2 size={13} />
                     </button>
                   </div>
@@ -335,6 +386,7 @@ export default function PosScreen() {
             <p className="text-xl font-black text-emerald-700 tracking-tight">Rp {totalBelanja.toLocaleString('id-ID')}</p>
           </div>
           <button
+            type="button"
             disabled={cart.length === 0}
             onClick={() => setShowPaymentModal(true)}
             className="bg-emerald-700 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed text-white text-xs font-black px-6 py-3 rounded-xl shadow-md hover:bg-emerald-800 active:scale-95 transition-all"
@@ -374,7 +426,7 @@ export default function PosScreen() {
                       key={method.id}
                       type="button"
                       disabled={isSubmitting}
-                      onClick={() => setSelectedMethod(method.id)}
+                      onClick={() => { if (navigator.vibrate) navigator.vibrate(25); playSensorySound('click'); setSelectedMethod(method.id); }}
                       className={`p-2.5 rounded-xl border text-[11px] font-black text-center transition-all ${selectedMethod === method.id ? 'border-emerald-500 bg-emerald-50 text-emerald-800 shadow-sm' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'}`}
                     >
                       {method.id === 'qris' ? '📲 QRIS' : method.id === 'tunai' ? '💵 Cash' : '💳 Bank'}
@@ -421,6 +473,7 @@ export default function PosScreen() {
                       <input
                         type="number"
                         required
+                        autoFocus // MIKRO-INTERAKSI: Otomatis memicu virtual keyboard HP naik tanpa kasir ketuk manual
                         disabled={isSubmitting}
                         placeholder="Contoh: 50000"
                         value={nominalBayar}
@@ -430,9 +483,9 @@ export default function PosScreen() {
                     </div>
 
                     <div className="flex gap-1.5">
-                      <button type="button" disabled={isSubmitting} onClick={() => setNominalBayar(totalBelanja.toString())} className="flex-1 bg-gray-50 border border-gray-200 py-1.5 rounded-lg text-[10px] font-bold text-gray-600 hover:bg-gray-100 shadow-sm">Uang Pas</button>
-                      <button type="button" disabled={isSubmitting} onClick={() => setNominalBayar('50000')} className="flex-1 bg-gray-50 border border-gray-200 py-1.5 rounded-lg text-[10px] font-bold text-gray-600 hover:bg-gray-100 shadow-sm">Rp 50k</button>
-                      <button type="button" disabled={isSubmitting} onClick={() => setNominalBayar('100000')} className="flex-1 bg-gray-50 border border-gray-200 py-1.5 rounded-lg text-[10px] font-bold text-gray-600 hover:bg-gray-100 shadow-sm">Rp 100k</button>
+                      <button type="button" disabled={isSubmitting} onClick={() => { playSensorySound('click'); setNominalBayar(totalBelanja.toString()); }} className="flex-1 bg-gray-50 border border-gray-200 py-1.5 rounded-lg text-[10px] font-bold text-gray-600 hover:bg-gray-100 shadow-sm">Uang Pas</button>
+                      <button type="button" disabled={isSubmitting} onClick={() => { playSensorySound('click'); setNominalBayar('50000'); }} className="flex-1 bg-gray-50 border border-gray-200 py-1.5 rounded-lg text-[10px] font-bold text-gray-600 hover:bg-gray-100 shadow-sm">Rp 50k</button>
+                      <button type="button" disabled={isSubmitting} onClick={() => { playSensorySound('click'); setNominalBayar('100000'); }} className="flex-1 bg-gray-50 border border-gray-200 py-1.5 rounded-lg text-[10px] font-bold text-gray-600 hover:bg-gray-100 shadow-sm">Rp 100k</button>
                     </div>
 
                     <button 

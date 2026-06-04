@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useAppStore } from '../../../store/useStore';
 import { Bell, UserCheck, Calendar, Monitor, TrendingUp, DollarSign, ShoppingBag, Award, X, Clock, User, Sparkles, ArrowRight, BrainCircuit } from 'lucide-react';
+
 interface DashboardScreenProps {
   onViewAllProducts: () => void;
 }
 
 export default function DashboardScreen({ onViewAllProducts }: DashboardScreenProps) {
-  const { namaToko, kasirAktif, daftarKasir, setKasirAktif, getComputedDashboard, allTransactions, getAIPredictiveStock, getAIMarginInsights } = useAppStore();
+  const { namaToko, kasirAktif, daftarKasir, setKasirAktif, getComputedDashboard, allTransactions, getAIPredictiveStock, getAIMarginInsights, isLoading } = useAppStore();
   const [timeFilter, setTimeFilter] = useState('Hari Ini');
   
   // Kontrol drawer notifikasi riwayat realtime
@@ -33,6 +34,65 @@ export default function DashboardScreen({ onViewAllProducts }: DashboardScreenPr
     setShowNotificationDrawer(true);
     setHasUnread(false);
   };
+
+  // ==========================================
+  // PREMIUM SKELETON SCREEN (UX RE-DESIGN UNTUK LOADING STATE)
+  // ==========================================
+  if (isLoading) {
+    return (
+      <div className="space-y-6 max-w-6xl mx-auto w-full px-1 sm:px-2 animate-pulse">
+        {/* Header Skeleton */}
+        <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-sm flex flex-col md:flex-row justify-between gap-4">
+          <div className="h-7 bg-gray-200 rounded-xl w-48"></div>
+          <div className="flex gap-2">
+            <div className="h-9 bg-gray-200 rounded-xl w-28"></div>
+            <div className="h-9 bg-gray-200 rounded-xl w-32"></div>
+          </div>
+        </div>
+
+        {/* Welcome Banner Skeleton */}
+        <div className="h-24 bg-gray-200 rounded-2xl w-full"></div>
+
+        {/* Financial Cards Grid Skeleton */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="bg-white p-4 rounded-2xl border border-gray-200/70 shadow-sm space-y-3 min-h-[110px]">
+              <div className="h-3 bg-gray-200 rounded w-16"></div>
+              <div className="h-6 bg-gray-200 rounded-lg w-28"></div>
+              <div className="h-4 bg-gray-200 rounded w-20"></div>
+            </div>
+          ))}
+        </div>
+
+        {/* Chart & Top Product Section Skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-sm h-52 md:col-span-2 flex items-end gap-4 px-6 pt-10">
+            {[1, 2, 3, 4].map(i => <div key={i} className="bg-gray-200 rounded-t-lg w-full" style={{ height: `${i * 20 + 15}%` }}></div>)}
+          </div>
+          <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-sm h-52 space-y-3">
+            <div className="h-4 bg-gray-200 rounded w-24 mb-4"></div>
+            <div className="h-8 bg-gray-50 rounded-xl w-full"></div>
+            <div className="h-8 bg-gray-50 rounded-xl w-full"></div>
+            <div className="h-8 bg-gray-50 rounded-xl w-full"></div>
+          </div>
+        </div>
+
+        {/* Sub-grid AI Predictions Skeleton */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 border-t border-gray-200/60 pt-5">
+          <div className="bg-white rounded-2xl border border-gray-200/80 p-5 shadow-sm h-48 lg:col-span-2 space-y-3">
+            <div className="h-4 bg-gray-200 rounded w-36 mb-4"></div>
+            <div className="h-6 bg-gray-50 rounded-lg w-full"></div>
+            <div className="h-6 bg-gray-50 rounded-lg w-full"></div>
+          </div>
+          <div className="bg-white rounded-2xl border border-gray-200/80 p-5 shadow-sm h-48 space-y-3">
+            <div className="h-4 bg-gray-200 rounded w-32 mb-4"></div>
+            <div className="h-14 bg-gray-50 rounded-xl w-full"></div>
+            <div className="h-14 bg-gray-50 rounded-xl w-full"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fadeIn max-w-6xl mx-auto w-full px-1 sm:px-2 relative">

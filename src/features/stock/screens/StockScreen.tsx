@@ -177,81 +177,130 @@ export default function StockScreen() {
       </div>
 
       {/* ==========================================
-          MODAL INLINE POP-UP EDITOR PRODUK
+          MODAL FIXED PREMIUM: LAYOUT SIMETRIS KASIR MOBILE PWA
           ========================================== */}
       {editingProduct && (
-        <div className="absolute inset-x-0 -top-4 bottom-0 bg-gray-900/60 rounded-3xl flex items-end justify-center z-50 p-4 animate-fadeIn">
-          <div className="bg-white w-full rounded-2xl p-5 space-y-4 shadow-2xl border border-gray-100 max-h-[620px] overflow-y-auto mb-2">
+        <div className="fixed inset-0 bg-gray-950/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto animate-fadeIn">
+          <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl border border-gray-100 my-auto animate-scaleUp overflow-hidden relative max-h-[92vh] flex flex-col">
             
-            <div className="flex justify-between items-center border-b border-gray-100 pb-2">
+            {/* Header Modal */}
+            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/60 shrink-0">
               <div>
-                <h3 className="text-sm font-bold text-gray-800">Edit Data Produk</h3>
-                <p className="text-[10px] text-gray-400 font-medium">SKU Terkunci: {editingProduct.sku}</p>
+                <h3 className="text-xs font-black uppercase tracking-wider text-gray-400">Edit Data Produk</h3>
+                <p className="text-[11px] font-bold text-gray-800 mt-0.5 truncate max-w-[220px]">SKU: {editingProduct.sku}</p>
               </div>
-              <button onClick={() => setEditingProduct(null)} className="p-1 text-gray-400 hover:text-gray-600"><X size={16} /></button>
+              <button 
+                type="button" 
+                onClick={() => setEditingProduct(null)} 
+                className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-all"
+              >
+                <X size={16} />
+              </button>
             </div>
 
-            <form onSubmit={handleUpdateSubmit} className="space-y-3.5 text-left">
-              {/* Edit Gambar */}
-              <div>
-                <label className="text-[9px] font-bold text-gray-400 uppercase block mb-1">Foto Produk</label>
+            {/* Scrollable Form Body Container */}
+            <form onSubmit={handleUpdateSubmit} className="p-4 space-y-4 overflow-y-auto flex-1 text-left">
+              
+              {/* Edit Gambar / Dropzone Area */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-wider block">Foto Produk</label>
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
                 <div 
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-full h-24 border-2 border-dashed border-gray-200 rounded-xl flex items-center justify-center bg-gray-50 hover:bg-emerald-50/20 cursor-pointer overflow-hidden relative"
+                  className="w-full h-36 border-2 border-dashed border-gray-200 rounded-xl flex items-center justify-center bg-gray-50 hover:bg-emerald-50/20 cursor-pointer overflow-hidden relative shadow-inner group"
                 >
                   {editImage && editImage.startsWith('data:image') ? (
-                    <img src={editImage} alt="" className="w-full h-full object-cover" />
+                    <>
+                      <img src={editImage} alt="Preview" className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-gray-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[11px] font-black gap-1">
+                        <Image size={12} /> Ganti Gambar
+                      </div>
+                    </>
                   ) : (
-                    <div className="text-center text-gray-400 text-[10px] font-bold flex flex-col items-center gap-1">
-                      <Image size={16} /> Ganti Gambar Gallery
+                    <div className="text-center text-gray-400 text-[11px] font-black flex flex-col items-center gap-1.5">
+                      <div className="w-8 h-8 bg-gray-200/60 rounded-lg flex items-center justify-center text-gray-500">
+                        <Image size={15} />
+                      </div>
+                      <span>Unggah Foto dari Galeri</span>
                     </div>
                   )}
                 </div>
               </div>
 
               {/* Edit Nama */}
-              <div>
-                <label className="text-[9px] font-bold text-gray-400 uppercase block mb-1">Nama Produk *</label>
-                <input type="text" required value={editNama} onChange={(e) => setEditNama(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-800 outline-none focus:bg-white focus:border-emerald-500" />
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-wider block">Nama Produk *</label>
+                <input 
+                  type="text" 
+                  required 
+                  value={editNama} 
+                  onChange={(e) => setEditNama(e.target.value)} 
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-gray-800 outline-none focus:bg-white focus:border-emerald-500 shadow-inner" 
+                />
               </div>
 
               {/* Edit Jual & Modal */}
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[9px] font-bold text-gray-400 uppercase block mb-1">Harga Jual (Rp) *</label>
-                  <input type="number" required value={editHargaJual} onChange={(e) => setEditHargaJual(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-emerald-700 outline-none focus:bg-white focus:border-emerald-500" />
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-wider block">Harga Jual (Rp) *</label>
+                  <input 
+                    type="number" 
+                    required 
+                    value={editHargaJual} 
+                    onChange={(e) => setEditHargaJual(e.target.value)} 
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-emerald-700 outline-none focus:bg-white focus:border-emerald-500 shadow-inner" 
+                  />
                 </div>
-                <div>
-                  <label className="text-[9px] font-bold text-gray-400 uppercase block mb-1">Harga Modal (Rp)</label>
-                  <input type="number" value={editHargaModal} onChange={(e) => setEditHargaModal(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-700 outline-none focus:bg-white focus:border-emerald-500" />
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-wider block">Harga Modal (Rp)</label>
+                  <input 
+                    type="number" 
+                    value={editHargaModal} 
+                    onChange={(e) => setEditHargaModal(e.target.value)} 
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-gray-700 outline-none focus:bg-white focus:border-emerald-500 shadow-inner" 
+                  />
                 </div>
               </div>
 
               {/* Edit Stok & Satuan */}
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[9px] font-bold text-gray-400 uppercase block mb-1">Jumlah Stok *</label>
-                  <input type="number" required value={editStok} onChange={(e) => setEditStok(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-800 outline-none focus:bg-white focus:border-emerald-500" />
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-wider block">Jumlah Stok *</label>
+                  <input 
+                    type="number" 
+                    required 
+                    value={editStok} 
+                    onChange={(e) => setEditStok(e.target.value)} 
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-gray-800 outline-none focus:bg-white focus:border-emerald-500 shadow-inner" 
+                  />
                 </div>
-                <div>
-                  <label className="text-[9px] font-bold text-gray-400 uppercase block mb-1">Satuan Jual</label>
-                  <select value={editSatuan} onChange={(e) => setEditSatuan(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-700 outline-none focus:bg-white focus:border-emerald-500">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-wider block">Satuan Jual</label>
+                  <select 
+                    value={editSatuan} 
+                    onChange={(e) => setEditSatuan(e.target.value)} 
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-gray-700 outline-none focus:bg-white focus:border-emerald-500 shadow-inner"
+                  >
                     <option value="Cup">Cup</option>
                     <option value="Pcs">Pcs</option>
                     <option value="Pack">Pack</option>
                     <option value="Botol">Botol</option>
+                    <option value="Porsi">Porsi</option>
                   </select>
                 </div>
               </div>
 
-              <button 
-                type="submit" 
-                disabled={isSubmitting}
-                className="w-full bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold py-2.5 rounded-xl shadow-md transition-all flex items-center justify-center gap-1 pt-3"
-              >
-                {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : "Simpan Pembaruan Data"}
-              </button>
+              {/* Footer Button di dalam Form */}
+              <div className="pt-2 shrink-0">
+                <button 
+                  type="submit" 
+                  disabled={isSubmitting}
+                  className="w-full bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-black py-3 rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5"
+                >
+                  {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : "Simpan Pembaruan Data"}
+                </button>
+              </div>
+
             </form>
           </div>
         </div>
@@ -259,7 +308,7 @@ export default function StockScreen() {
 
       {/* Toast Feedback */}
       {showToast && (
-        <div className="absolute top-4 inset-x-0 mx-auto max-w-xs bg-gray-900 text-white text-[11px] font-bold py-2 px-4 rounded-xl flex items-center justify-center gap-2 shadow-xl z-50 animate-bounce">
+        <div className="fixed top-4 inset-x-0 mx-auto max-w-xs bg-gray-900 text-white text-[11px] font-bold py-2 px-4 rounded-xl flex items-center justify-center gap-2 shadow-xl z-50 animate-bounce">
           <CheckCircle size={14} className="text-emerald-400" />
           <span>{showToast}</span>
         </div>
