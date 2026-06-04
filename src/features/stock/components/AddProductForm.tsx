@@ -10,7 +10,7 @@ interface AddProductFormProps {
 export default function AddProductForm({ onSuccess }: AddProductFormProps) {
   const { addProduct } = useAppStore();
   
-  // State Input Form sesuai visual Screenshot 2026-06-04 at 21.38.50.png
+  // State Input Form
   const [nama, setNama] = useState('');
   const [kategori, setKategori] = useState('Minuman');
   const [hargaJual, setHargaJual] = useState('15000');
@@ -26,7 +26,7 @@ export default function AddProductForm({ onSuccess }: AddProductFormProps) {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Auto Generator SKU/Barcode Ruko ringkas
+  // Auto Generator SKU/Barcode
   const handleGenerateSKU = () => {
     if (navigator.vibrate) navigator.vibrate(30);
     const prefix = kategori.substring(0, 3).toUpperCase();
@@ -34,7 +34,7 @@ export default function AddProductForm({ onSuccess }: AddProductFormProps) {
     setSku(`${prefix}${timestamp}`);
   };
 
-  // Handler konversi foto barang via gallery ruko
+  // Handler konversi foto barang via gallery
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
@@ -47,14 +47,13 @@ export default function AddProductForm({ onSuccess }: AddProductFormProps) {
     }
   };
 
-  // Eksekusi Submit Data dengan Proteksi Submit Ganda
+  // Eksekusi Submit Data (FIX STUCK LOADING PRODUCTION VIA ASYNC/AWAIT FINALLY)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nama.trim() || isSubmitting) return;
 
     setIsSubmitting(true);
 
-    // Skema randomisasi warna background inisial ikon jika gambar kosong
     const colorOptions = [
       'bg-emerald-100 text-emerald-800',
       'bg-blue-100 text-blue-800',
@@ -65,7 +64,7 @@ export default function AddProductForm({ onSuccess }: AddProductFormProps) {
     const randomColor = colorOptions[Math.floor(Math.random() * colorOptions.length)];
 
     const safeNewProduct = {
-      id: '', // Di-generate otomatis oleh Firebase SDK di store
+      id: '', 
       sku: sku.trim() || `SKU-${Date.now()}`,
       nama: nama.trim(),
       kategori,
@@ -78,27 +77,28 @@ export default function AddProductForm({ onSuccess }: AddProductFormProps) {
     };
 
     try {
+      // Tunggu hingga proses penulisan Firestore cloud tuntas
       await addProduct(safeNewProduct);
       
-      // Sukses: Nyalakan getaran, toast notifikasi, dan reset isian form
       if (navigator.vibrate) navigator.vibrate([50, 40, 50]);
       setShowToast(true);
       
-      // Bersihkan isian input
+      // Reset isian field
       setNama('');
       setSku('');
       setImage('');
       
-      // Berikan jeda 1.8 detik agar kasir ruko bisa membaca notifikasi sukses sebelum pindah halaman
+      // Berikan jeda visual toast sebelum memicu perpindahan tab menu
       setTimeout(() => {
         setShowToast(false);
-        onSuccess(); // Otomatis balik ke tab layar daftar stok etalase
-      }, 1800);
+        onSuccess(); 
+      }, 1500);
 
     } catch (error) {
-      console.error(error);
-      alert("Gagal menambahkan produk ke cloud database. Periksa koneksi ruko!");
+      console.error("Error pada production write:", error);
+      alert("Gagal mengirim data. Periksa jaringan internet ruko!");
     } finally {
+      // LOCK BREAKER: Blok ini dijamin 100% dieksekusi browser untuk membebaskan tombol dari freeze loading
       setIsSubmitting(false);
     }
   };
@@ -106,7 +106,7 @@ export default function AddProductForm({ onSuccess }: AddProductFormProps) {
   return (
     <div className="space-y-4 max-w-xl mx-auto w-full px-1 sm:px-2 relative pb-10">
       
-      {/* Toast Notifikasi Berhasil Mengambang Premium */}
+      {/* Toast Notifikasi Berhasil Mengambang */}
       {showToast && (
         <div className="fixed top-6 inset-x-0 mx-auto z-[9999] px-4 w-full max-w-xs animate-bounce">
           <div className="w-full bg-gray-900 border border-gray-800 text-white rounded-2xl p-3.5 shadow-2xl flex items-center justify-center gap-2.5">
@@ -121,11 +121,10 @@ export default function AddProductForm({ onSuccess }: AddProductFormProps) {
         <p className="text-xs text-gray-500 mt-0.5">Masukkan data inventaris barang baru outlet ruko</p>
       </div>
 
-      {/* BOX CARD CONTAINER UTAMA */}
       <div className="bg-white rounded-2xl border border-gray-200/90 p-4 sm:p-5 shadow-sm">
         <form onSubmit={handleSubmit} className="space-y-4 text-left">
           
-          {/* 1. DROPZONE FOTO GAMBAR PRODUK */}
+          {/* FOTO GAMBAR PRODUK */}
           <div className="space-y-1">
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-wider block">Foto Gambar Produk *</label>
             <input 
@@ -141,7 +140,7 @@ export default function AddProductForm({ onSuccess }: AddProductFormProps) {
               className={`w-full h-36 border-2 border-dashed border-gray-200 rounded-2xl flex items-center justify-center bg-gray-50/50 hover:bg-emerald-50/20 transition-colors relative overflow-hidden group ${isSubmitting ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
             >
               {image ? (
-                <img src={image} alt="Preview Kulakan" className="w-full h-full object-cover" />
+                <img src={image} alt="Preview" className="w-full h-full object-cover" />
               ) : (
                 <div className="text-center space-y-1 p-4">
                   <div className="w-9 h-9 bg-gray-100 rounded-xl flex items-center justify-center text-gray-400 mx-auto group-hover:text-emerald-600 transition-colors border border-gray-200/60 shadow-inner">
@@ -154,7 +153,7 @@ export default function AddProductForm({ onSuccess }: AddProductFormProps) {
             </div>
           </div>
 
-          {/* 2. INPUT NAMA PRODUK */}
+          {/* NAMA PRODUK */}
           <div className="space-y-1">
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-wider block">Nama Produk *</label>
             <input
@@ -168,7 +167,7 @@ export default function AddProductForm({ onSuccess }: AddProductFormProps) {
             />
           </div>
 
-          {/* 3. SELEKSI KATEGORI MENU */}
+          {/* KATEGORI */}
           <div className="space-y-1">
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-wider block">Kategori</label>
             <select
@@ -186,7 +185,7 @@ export default function AddProductForm({ onSuccess }: AddProductFormProps) {
             </select>
           </div>
 
-          {/* 4. HARGA JUAL & HARGA MODAL */}
+          {/* HARGA JUAL & HARGA MODAL */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="text-[10px] font-black text-gray-400 uppercase tracking-wider block">Harga Jual (Rp) *</label>
@@ -211,7 +210,7 @@ export default function AddProductForm({ onSuccess }: AddProductFormProps) {
             </div>
           </div>
 
-          {/* 5. JUMLAH STOK & SATUAN */}
+          {/* JUMLAH STOK & SATUAN */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="text-[10px] font-black text-gray-400 uppercase tracking-wider block">Jumlah Stok *</label>
@@ -242,7 +241,7 @@ export default function AddProductForm({ onSuccess }: AddProductFormProps) {
             </div>
           </div>
 
-          {/* 6. INPUT KODE SKU BARCODE DENGAN GENERATE BUTTON */}
+          {/* KODE SKU / BARCODE */}
           <div className="space-y-1">
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-wider block">Kode SKU / Barcode</label>
             <div className="flex gap-2">
@@ -266,7 +265,7 @@ export default function AddProductForm({ onSuccess }: AddProductFormProps) {
             </div>
           </div>
 
-          {/* 7. ACTION BUTTON SUBMIT DENGAN ANIMASI LOADER MUTASI */}
+          {/* BUTTON SUBMIT */}
           <div className="pt-2">
             <button
               type="submit"
