@@ -1,15 +1,15 @@
 import { useState, useEffect } from 'react';
-import { LayoutDashboard, Box, PlusCircle, ShoppingCart, Menu, Loader2, WifiOff, Wifi, X } from 'lucide-react';
+import { LayoutDashboard, Box, PlusCircle, ShoppingCart, Menu, WifiOff, Wifi, X } from 'lucide-react';
 import { useAppStore } from './store/useStore';
 import DashboardScreen from './features/dashboard/screens/DashboardScreen';
-import StockScreen from './features/stock/screens/StockScreen'; // FIXED: Kembali ke folder 'stock' sesuai struktur ruko kamu
+import StockScreen from './features/stock/screens/StockScreen'; 
 import PosScreen from './features/transaksi/screens/PosScreen';
 import SettingScreen from './features/setting/screens/SettingScreen';
 import AddProductForm from './features/stock/components/AddProductForm';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const { initAppSync, isLoading, isOnline, networkToast, closeNetworkToast } = useAppStore();
+  const { initAppSync, isOnline, networkToast, closeNetworkToast } = useAppStore();
 
   useEffect(() => {
     initAppSync();
@@ -72,26 +72,20 @@ export default function App() {
         </div>
       )}
       
-      {isLoading ? (
-        <div className="fixed inset-0 flex flex-col items-center justify-center space-y-3 bg-white z-50">
-          <Loader2 size={36} className="text-emerald-700 animate-spin" />
-          <p className="text-xs font-bold text-gray-500 tracking-wide">Menghubungkan ke Cloud Firestore...</p>
-        </div>
-      ) : (
-        <main className="flex-1 w-full px-4 sm:px-6 md:px-8 py-5 pb-28 overflow-y-auto">
-          {activeTab === 'dashboard' && (
-            <DashboardScreen onViewAllProducts={() => setActiveTab('produk')} />
-          )}
-          {activeTab === 'produk' && <StockScreen />}
-          {activeTab === 'transaksi' && <PosScreen />}
-          {activeTab === 'lainnya' && <SettingScreen />}
-          {activeTab === 'tambah' && (
-            <AddProductForm onSuccess={() => setActiveTab('produk')} />
-          )}
-        </main>
-      )}
+      {/* FIX PRODUCTION STUCK: Langsung render tanpa mengunci screen via total blocking loader */}
+      <main className="flex-1 w-full px-4 sm:px-6 md:px-8 py-5 pb-28 overflow-y-auto">
+        {activeTab === 'dashboard' && (
+          <DashboardScreen onViewAllProducts={() => setActiveTab('produk')} />
+        )}
+        {activeTab === 'produk' && <StockScreen />}
+        {activeTab === 'transaksi' && <PosScreen />}
+        {activeTab === 'lainnya' && <SettingScreen />}
+        {activeTab === 'tambah' && (
+          <AddProductForm onSuccess={() => setActiveTab('produk')} />
+        )}
+      </main>
 
-      {/* NAV BAR ASLI (5 MENU) SESUAI SCREENSHOT 21.05.54 */}
+      {/* NAV BAR ASLI (5 MENU) */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 h-20 flex items-center justify-around px-4 pb-2 z-40 shadow-xl max-w-lg mx-auto sm:rounded-t-3xl sm:border-x">
         <button 
           type="button"
