@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { db } from '../config/firebase';
+import { db, auth } from '../config/firebase';
 import { 
   collection, 
   doc, 
@@ -8,8 +8,11 @@ import {
   updateDoc, 
   deleteDoc,
   addDoc, 
-  onSnapshot
+  onSnapshot,
+  query,     
+  where      
 } from 'firebase/firestore';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 
 export interface Product {
   id: string;
@@ -22,6 +25,7 @@ export interface Product {
   satuan: string;
   imageLetter: string;
   colorClass: string;
+  ownerId?: string; 
 }
 
 export interface CartItem extends Product {
@@ -58,6 +62,7 @@ export interface TransactionDoc {
   uangDiterima: number;
   kembalian: number;
   kasirId: string;
+  ownerId?: string; 
 }
 
 export interface DashboardSummary {
@@ -89,7 +94,6 @@ export interface AIMarginInsight {
   rekomendasiStrategi: string;
 }
 
-// SENSORY INTERACTION: Toast State Interface
 export interface NetworkToastState {
   show: boolean;
   type: 'online' | 'offline' | 'idle';
@@ -97,6 +101,8 @@ export interface NetworkToastState {
 }
 
 interface AppState {
+  user: any | null;       
+  authLoading: boolean;   
   namaToko: string;
   kasirAktif: string;
   daftarKasir: string[];
@@ -106,9 +112,10 @@ interface AppState {
   allTransactions: TransactionDoc[];
   isLoading: boolean;
   isOnline: boolean;
-  networkToast: NetworkToastState; // State untuk interaksi pop-up jaringan
+  networkToast: NetworkToastState;
   closeNetworkToast: () => void;
   initAppSync: () => Promise<void>;
+  logoutUser: () => Promise<void>; 
   setKasirAktif: (namaKasir: string) => void;
   addKasirDinamis: (namaKasir: string) => Promise<void>;
   getComputedDashboard: () => DashboardSummary;
@@ -131,9 +138,11 @@ interface AppState {
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
-  namaToko: "Kopi & Roti Mantap",
+  user: null,
+  authLoading: true,
+  namaToko: "POS UMKM",
   kasirAktif: "Shobur",
-  daftarKasir: ["Shobur", "Budi", "Siti"],
+  daftarKasir: ["Shobur"],
   isLoading: true,
   isOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
   allTransactions: [],
@@ -149,123 +158,119 @@ export const useAppStore = create<AppState>((set, get) => ({
   closeNetworkToast: () => set({ networkToast: { show: false, type: 'idle', message: '' } }),
 
   initAppSync: async () => {
-    set({ isLoading: true });
-    
-    // MIKRO-INTERAKSI SENSORIK LISTENER JARINGAN BROWSER
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && (window as any)._networkListenersAttached !== true) {
+      (window as any)._networkListenersAttached = true;
+      
       window.addEventListener('online', () => {
-        // 1. Trigger Haptic Getar Sukses Native PWA
         if (navigator.vibrate) navigator.vibrate([40, 40, 40]);
-        
-        // 2. Set State & Munculkan Banner Hijau Ceria
-        set({ 
-          isOnline: true,
-          networkToast: { 
-            show: true, 
-            type: 'online', 
-            message: '✨ Kembali Online! Sinkronisasi cloud ruko berhasil diselaraskan.' 
-          }
-        });
-        
-        // 3. Jalankan pengosongan antrean data transaksi offline otomatis
+        set({ isOnline: true, networkToast: { show: true, type: 'online', message: '✨ Kembali Online! Sinkronisasi cloud ruko berhasil diselaraskan.' } });
         get().syncOfflineTransactions();
-        
-        // Auto-close banner toast dalam 3.5 detik
         setTimeout(() => get().closeNetworkToast(), 3500);
       });
 
       window.addEventListener('offline', () => {
-        // 1. Trigger Haptic Getar Peringatan Keras
         if (navigator.vibrate) navigator.vibrate(120);
-
-        // 2. Set State & Munculkan Banner Abu-Abu Peringatan
-        set({ 
-          isOnline: false,
-          networkToast: { 
-            show: true, 
-            type: 'offline', 
-            message: '⚠️ Sinyal Putus. Sistem otomatis mengaktifkan mode kebal offline!' 
-          }
-        });
+        set({ isOnline: false, networkToast: { show: true, type: 'offline', message: '⚠️ Sinyal Putus. Sistem otomatis mengaktifkan mode kebal offline!' } });
       });
     }
 
-    const profileRef = doc(db, 'settings', 'profile');
-    const paymentSettingsRef = doc(db, 'settings', 'payment_methods');
-    const cashiersRef = doc(db, 'settings', 'cashiers');
-    const transactionsCollectionRef = collection(db, 'transactions');
-
-    try {
-      const profileSnap = await getDoc(profileRef);
-      if (!profileSnap.exists()) {
-        await setDoc(profileRef, { namaToko: "Kopi & Roti Mantap" });
+    onAuthStateChanged(auth, async (currentUser) => {
+      if (!currentUser) {
+        set({ user: null, authLoading: false, products: [], allTransactions: [], isLoading: false });
+        return;
       }
-      const cashiersSnap = await getDoc(cashiersRef);
-      if (!cashiersSnap.exists()) {
-        await setDoc(cashiersRef, { list: ["Shobur", "Budi", "Siti"] });
+
+      const userId = currentUser.uid;
+      set({ user: currentUser, authLoading: false, isLoading: true });
+
+      const profileRef = doc(db, 'settings', `profile_${userId}`);
+      const cashiersRef = doc(db, 'settings', `cashiers_${userId}`);
+      const paymentSettingsRef = doc(db, 'settings', `payment_methods_${userId}`);
+
+      try {
+        const profileSnap = await getDoc(profileRef);
+        if (!profileSnap.exists()) {
+          // FIXED WORDING: Default baru saat ruko mendaftar workspace cloud pertama kali
+          await setDoc(profileRef, { namaToko: "Outlet POS UMKM" });
+        }
+        const cashiersSnap = await getDoc(cashiersRef);
+        if (!cashiersSnap.exists()) {
+          await setDoc(cashiersRef, { list: ["Owner"] });
+        }
+      } catch (e) {
+        console.warn("Bootstrap workspace data ready");
       }
-    } catch (e) {
-      console.warn("Bootstrap initiated pass");
-    }
 
-    onSnapshot(profileRef, (docSnap) => {
-      if (docSnap.exists()) set({ namaToko: docSnap.data().namaToko });
-    });
-
-    onSnapshot(cashiersRef, (docSnap) => {
-      if (docSnap.exists() && docSnap.data().list) set({ daftarKasir: docSnap.data().list });
-    });
-
-    onSnapshot(paymentSettingsRef, (docSnap) => {
-      if (docSnap.exists() && docSnap.data().methods) set({ paymentMethods: docSnap.data().methods });
-    });
-
-    onSnapshot(transactionsCollectionRef, (querySnapshot) => {
-      const listTx: TransactionDoc[] = [];
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        listTx.push({
-          id: doc.id,
-          waktuTransaksi: data.waktuTransaksi || '',
-          items: data.items || [],
-          totalHarga: Number(data.totalHarga || 0),
-          totalModal: Number(data.totalModal || 0),
-          labaBersih: Number(data.labaBersih || 0),
-          paymentMethod: data.paymentMethod || 'tunai',
-          uangDiterima: Number(data.uangDiterima || 0),
-          kembalian: Number(data.kembalian || 0),
-          kasirId: data.kasirId || 'Shobur'
-        });
+      onSnapshot(profileRef, (docSnap) => {
+        if (docSnap.exists()) set({ namaToko: docSnap.data().namaToko });
       });
-      const localQueue = JSON.parse(localStorage.getItem('offline_transactions_queue') || '[]');
-      set({ allTransactions: [...localQueue, ...listTx], isLoading: false });
-    }, () => {
-      const localQueue = JSON.parse(localStorage.getItem('offline_transactions_queue') || '[]');
-      set({ allTransactions: localQueue, isLoading: false });
-    });
 
-    const productsRef = collection(db, 'products');
-    onSnapshot(productsRef, (querySnapshot) => {
-      const prodList: Product[] = [];
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        prodList.push({ 
-          id: doc.id, 
-          sku: data.sku || '',
-          nama: data.nama || 'Produk Tanpa Nama',
-          kategori: data.kategori || 'Minuman',
-          hargaJual: Number(data.hargaJual || 0), 
-          hargaModal: Number(data.hargaModal || 0),
-          stok: Number(data.stok || 0),
-          satuan: data.satuan || 'Pcs',
-          imageLetter: data.imageLetter || '📦',
-          colorClass: data.colorClass || 'bg-gray-100 text-gray-800'
-        });
+      onSnapshot(cashiersRef, (docSnap) => {
+        if (docSnap.exists() && docSnap.data().list) {
+          const listKasir = docSnap.data().list;
+          set({ daftarKasir: listKasir, kasirAktif: listKasir[0] || 'Owner' });
+        }
       });
-      set({ products: prodList });
-    });
 
-    get().syncOfflineTransactions();
+      onSnapshot(paymentSettingsRef, (docSnap) => {
+        if (docSnap.exists() && docSnap.data().methods) set({ paymentMethods: docSnap.data().methods });
+      });
+
+      const transactionsQuery = query(collection(db, 'transactions'), where('ownerId', '==', userId));
+      onSnapshot(transactionsQuery, (querySnapshot) => {
+        const listTx: TransactionDoc[] = [];
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          listTx.push({
+            id: doc.id,
+            waktuTransaksi: data.waktuTransaksi || '',
+            items: data.items || [],
+            totalHarga: Number(data.totalHarga || 0),
+            totalModal: Number(data.totalModal || 0),
+            labaBersih: Number(data.labaBersih || 0),
+            paymentMethod: data.paymentMethod || 'tunai',
+            uangDiterima: Number(data.uangDiterima || 0),
+            kembalian: Number(data.kembalian || 0),
+            kasirId: data.kasirId || 'Owner',
+            ownerId: data.ownerId
+          });
+        });
+        const localQueue = JSON.parse(localStorage.getItem(`offline_tx_queue_${userId}`) || '[]');
+        set({ allTransactions: [...localQueue, ...listTx], isLoading: false });
+      }, () => {
+        const localQueue = JSON.parse(localStorage.getItem(`offline_tx_queue_${userId}`) || '[]');
+        set({ allTransactions: localQueue, isLoading: false });
+      });
+
+      const productsQuery = query(collection(db, 'products'), where('ownerId', '==', userId));
+      onSnapshot(productsQuery, (querySnapshot) => {
+        const prodList: Product[] = [];
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          prodList.push({ 
+            id: doc.id, 
+            sku: data.sku || '',
+            nama: data.nama || 'Produk Tanpa Nama',
+            kategori: data.kategori || 'Minuman',
+            hargaJual: Number(data.hargaJual || 0), 
+            hargaModal: Number(data.hargaModal || 0),
+            stok: Number(data.stok || 0),
+            satuan: data.satuan || 'Pcs',
+            imageLetter: data.imageLetter || '📦',
+            colorClass: data.colorClass || 'bg-gray-100 text-gray-800',
+            ownerId: data.ownerId
+          });
+        });
+        set({ products: prodList });
+      });
+
+      get().syncOfflineTransactions();
+    });
+  },
+
+  logoutUser: async () => {
+    set({ isLoading: true });
+    await signOut(auth);
   },
 
   setKasirAktif: (namaKasir) => set({ kasirAktif: namaKasir }),
@@ -273,11 +278,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   addKasirDinamis: async (namaKasir) => {
     const bersihNama = namaKasir.trim();
     if (!bersihNama) return;
-    const { daftarKasir } = get();
+    const { daftarKasir, user } = get();
+    if (!user) return;
     if (daftarKasir.includes(bersihNama)) return;
     const barulist = [...daftarKasir, bersihNama];
     set({ daftarKasir: barulist });
-    await setDoc(doc(db, 'settings', 'cashiers'), { list: barulist }, { merge: true });
+    await setDoc(doc(db, 'settings', `cashiers_${user.uid}`), { list: barulist }, { merge: true });
   },
 
   getAIPredictiveStock: () => {
@@ -432,29 +438,38 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   updateProfile: async (namaToko) => {
-    await setDoc(doc(db, 'settings', 'profile'), { namaToko }, { merge: true });
+    const { user } = get();
+    if (!user) return;
+    await setDoc(doc(db, 'settings', `profile_${user.uid}`), { namaToko }, { merge: true });
   },
 
   resetDataToko: async () => {
-    const { allTransactions } = get();
-    localStorage.removeItem('offline_transactions_queue');
-    await Promise.all(allTransactions.map(t => t.id ? deleteDoc(doc(db, 'transactions', t.id)) : Promise.resolve()));
+    const { allTransactions, user } = get();
+    if (!user) return;
+    localStorage.removeItem(`offline_tx_queue_${user.uid}`);
+    await Promise.all(allTransactions.map(t => t.id ? deleteDoc(doc(doc(db, 'transactions', t.id).path)) : Promise.resolve()));
     set({ cart: [] });
   },
   
   togglePaymentMethod: async (id) => {
-    const updated = get().paymentMethods.map(m => m.id === id ? { ...m, isActive: !m.isActive } : m);
+    const { user, paymentMethods } = get();
+    if (!user) return;
+    const updated = paymentMethods.map(m => m.id === id ? { ...m, isActive: !m.isActive } : m);
     set({ paymentMethods: updated });
-    await setDoc(doc(db, 'settings', 'payment_methods'), { methods: updated }, { merge: true });
+    await setDoc(doc(db, 'settings', `payment_methods_${user.uid}`), { methods: updated }, { merge: true });
   },
 
   updatePaymentDetails: async (id, details) => {
-    const updated = get().paymentMethods.map(m => m.id === id ? { ...m, details } : m);
+    const { user, paymentMethods } = get();
+    if (!user) return;
+    const updated = paymentMethods.map(m => m.id === id ? { ...m, details } : m);
     set({ paymentMethods: updated });
-    await setDoc(doc(db, 'settings', 'payment_methods'), { methods: updated }, { merge: true });
+    await setDoc(doc(db, 'settings', `payment_methods_${user.uid}`), { methods: updated }, { merge: true });
   },
 
   addProduct: async (product) => {
+    const { user } = get();
+    if (!user) return;
     try {
       const productsCollectionRef = collection(db, 'products');
       const newProductDocRef = doc(productsCollectionRef);
@@ -466,7 +481,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         hargaJual: Number(product.hargaJual || 0),
         hargaModal: Number(product.hargaModal || 0),
         stok: Number(product.stok || 0),
-        sku: product.sku ? product.sku.trim() : `SKU-${Date.now()}`
+        sku: product.sku ? product.sku.trim() : `SKU-${Date.now()}`,
+        ownerId: user.uid 
       };
       await setDoc(newProductDocRef, safeProductWithGeneratedId);
     } catch (error) {
@@ -477,10 +493,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   updateProduct: async (id, data) => { await updateDoc(doc(db, 'products', id), data); },
   deleteProduct: async (id) => { await deleteDoc(doc(db, 'products', id)); },
-  
-  updateStock: async (id: string, newStock: number) => { 
-    await updateDoc(doc(db, 'products', id), { stok: Number(newStock) }); 
-  },
+  updateStock: async (id: string, newStock: number) => { await updateDoc(doc(db, 'products', id), { stok: Number(newStock) }); },
   
   addToCart: (product) => set((state) => {
     if (product.stok <= 0) return {};
@@ -514,7 +527,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   clearCart: () => set({ cart: [] }),
 
   checkout: async (paymentMethod, uangDiterima) => {
-    const { cart, kasirAktif, isOnline, products } = get();
+    const { cart, kasirAktif, isOnline, products, user } = get();
+    if (!user) return "User belum login!";
+    
     let totalHarga = cart.reduce((sum, item) => sum + (item.hargaJual * item.quantity), 0);
     let totalModal = cart.reduce((sum, item) => sum + (item.hargaModal * item.quantity), 0);
 
@@ -531,12 +546,13 @@ export const useAppStore = create<AppState>((set, get) => ({
       paymentMethod,
       uangDiterima: Number(actualUangDiterima),
       kembalian: Number(kembalian),
-      kasirId: kasirAktif
+      kasirId: kasirAktif,
+      ownerId: user.uid 
     };
 
     if (!isOnline) {
-      const q = JSON.parse(localStorage.getItem('offline_transactions_queue') || '[]');
-      localStorage.setItem('offline_transactions_queue', JSON.stringify([newTxDoc, ...q]));
+      const q = JSON.parse(localStorage.getItem(`offline_tx_queue_${user.uid}`) || '[]');
+      localStorage.setItem(`offline_tx_queue_${user.uid}`, JSON.stringify([newTxDoc, ...q]));
       set({ products: products.map(p => { const c = cart.find(i => i.id === p.id); return c ? { ...p, stok: Math.max(0, p.stok - c.quantity) } : p; }), cart: [] });
       return { kembalian };
     }
@@ -547,17 +563,17 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ cart: [] });
       return { kembalian };
     } catch {
-      const q = JSON.parse(localStorage.getItem('offline_transactions_queue') || '[]');
-      localStorage.setItem('offline_transactions_queue', JSON.stringify([newTxDoc, ...q]));
+      const q = JSON.parse(localStorage.getItem(`offline_tx_queue_${user.uid}`) || '[]');
+      localStorage.setItem(`offline_tx_queue_${user.uid}`, JSON.stringify([newTxDoc, ...q]));
       set({ cart: [] });
       return { kembalian };
     }
   },
 
   syncOfflineTransactions: async () => {
-    const { isOnline } = get();
-    if (!isOnline) return;
-    const q: TransactionDoc[] = JSON.parse(localStorage.getItem('offline_transactions_queue') || '[]');
+    const { isOnline, user } = get();
+    if (!isOnline || !user) return;
+    const q: TransactionDoc[] = JSON.parse(localStorage.getItem(`offline_tx_queue_${user.uid}`) || '[]');
     if (q.length === 0) return;
     const ref = collection(db, 'transactions');
     for (let i = q.length - 1; i >= 0; i--) {
@@ -569,10 +585,10 @@ export const useAppStore = create<AppState>((set, get) => ({
           if (sn.exists()) await updateDoc(pRef, { stok: Math.max(0, Number(sn.data().stok || 0) - it.qty) });
         }
       } catch {
-        localStorage.setItem('offline_transactions_queue', JSON.stringify(q.slice(0, i + 1)));
+        localStorage.setItem(`offline_tx_queue_${user.uid}`, JSON.stringify(q.slice(0, i + 1)));
         return;
       }
     }
-    localStorage.removeItem('offline_transactions_queue');
+    localStorage.removeItem(`offline_tx_queue_${user.uid}`);
   }
 }));

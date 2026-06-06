@@ -1,26 +1,38 @@
 import { useState, useEffect } from 'react';
-import { LayoutDashboard, Box, PlusCircle, ShoppingCart, Menu, WifiOff, Wifi, X } from 'lucide-react';
+import { LayoutDashboard, Box, PlusCircle, ShoppingCart, Menu, WifiOff, Wifi, X, Loader2 } from 'lucide-react';
 import { useAppStore } from './store/useStore';
 import DashboardScreen from './features/dashboard/screens/DashboardScreen';
 import StockScreen from './features/stock/screens/StockScreen'; 
 import PosScreen from './features/transaksi/screens/PosScreen';
 import SettingScreen from './features/setting/screens/SettingScreen';
 import AddProductForm from './features/stock/components/AddProductForm';
+import LoginScreen from './features/auth/screens/LoginScreen';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const { initAppSync, isOnline, networkToast, closeNetworkToast } = useAppStore();
+  const { initAppSync, isOnline, networkToast, closeNetworkToast, user, authLoading } = useAppStore();
 
   useEffect(() => {
     initAppSync();
   }, [initAppSync]);
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center space-y-2.5">
+        <Loader2 size={30} className="text-emerald-700 animate-spin" />
+        <p className="text-[11px] font-black text-gray-400 tracking-wider uppercase">Validasi Sesi Ruko Cloud...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginScreen />;
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col w-full relative">
       
-      {/* ==========================================
-          MIKRO-INTERAKSI: FLOATING NETWORK TOAST NOTIFICATION
-          ========================================== */}
+      {/* MIKRO-INTERAKSI: FLOATING NETWORK TOAST NOTIFICATION */}
       {networkToast.show && (
         <div className="fixed top-4 inset-x-0 mx-auto z-[9999] px-4 w-full max-w-sm animate-slideDown">
           <div 
@@ -72,7 +84,7 @@ export default function App() {
         </div>
       )}
       
-      {/* FIX PRODUCTION STUCK: Langsung render tanpa mengunci screen via total blocking loader */}
+      {/* AREA RENDER UTAMA DASHBOARD OPERASIONAL KASIR */}
       <main className="flex-1 w-full px-4 sm:px-6 md:px-8 py-5 pb-28 overflow-y-auto">
         {activeTab === 'dashboard' && (
           <DashboardScreen onViewAllProducts={() => setActiveTab('produk')} />

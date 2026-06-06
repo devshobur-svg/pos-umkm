@@ -1,25 +1,23 @@
 import { useState } from 'react';
 import { useAppStore } from '../../../store/useStore';
-import { Bell, UserCheck, Calendar, Monitor, TrendingUp, DollarSign, ShoppingBag, Award, X, Clock, User, Sparkles, ArrowRight, BrainCircuit } from 'lucide-react';
+import { Bell, UserCheck, Calendar, Monitor, TrendingUp, DollarSign, ShoppingBag, Award, X, Clock, User, Sparkles, ArrowRight, BrainCircuit, LogOut } from 'lucide-react';
 
 interface DashboardScreenProps {
   onViewAllProducts: () => void;
 }
 
 export default function DashboardScreen({ onViewAllProducts }: DashboardScreenProps) {
-  const { namaToko, kasirAktif, daftarKasir, setKasirAktif, getComputedDashboard, allTransactions, getAIPredictiveStock, getAIMarginInsights, isLoading } = useAppStore();
+  // Panggil logoutUser dan isLoading dari store ruko
+  const { namaToko, kasirAktif, daftarKasir, setKasirAktif, getComputedDashboard, allTransactions, getAIPredictiveStock, getAIMarginInsights, isLoading, logoutUser } = useAppStore();
   const [timeFilter, setTimeFilter] = useState('Hari Ini');
   
-  // Kontrol drawer notifikasi riwayat realtime
   const [showNotificationDrawer, setShowNotificationDrawer] = useState(false);
   const [hasUnread, setHasUnread] = useState(true);
 
-  // Mengambil ringkasan laporan dinamis & data intelijen AI
   const computedData = getComputedDashboard();
   const aiStockList = getAIPredictiveStock();
   const aiMarginList = getAIMarginInsights();
 
-  // Hitung jumlah item kritis/peringatan kulakan
   const totalKritisCount = aiStockList.filter(i => i.statusKritis === 'KRITIS' || i.statusKritis === 'PERINGATAN').length;
 
   const sortedTransactionsFeed = [...allTransactions].sort((a, b) => 
@@ -35,13 +33,16 @@ export default function DashboardScreen({ onViewAllProducts }: DashboardScreenPr
     setHasUnread(false);
   };
 
-  // ==========================================
-  // PREMIUM SKELETON SCREEN (UX RE-DESIGN UNTUK LOADING STATE)
-  // ==========================================
+  const handleLogoutClick = async () => {
+    if (window.confirm("Apakah kamu yakin ingin keluar dari sistem POS UMKM?")) {
+      if (navigator.vibrate) navigator.vibrate(80);
+      await logoutUser();
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-6 max-w-6xl mx-auto w-full px-1 sm:px-2 animate-pulse">
-        {/* Header Skeleton */}
         <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-sm flex flex-col md:flex-row justify-between gap-4">
           <div className="h-7 bg-gray-200 rounded-xl w-48"></div>
           <div className="flex gap-2">
@@ -49,11 +50,7 @@ export default function DashboardScreen({ onViewAllProducts }: DashboardScreenPr
             <div className="h-9 bg-gray-200 rounded-xl w-32"></div>
           </div>
         </div>
-
-        {/* Welcome Banner Skeleton */}
         <div className="h-24 bg-gray-200 rounded-2xl w-full"></div>
-
-        {/* Financial Cards Grid Skeleton */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="bg-white p-4 rounded-2xl border border-gray-200/70 shadow-sm space-y-3 min-h-[110px]">
@@ -63,8 +60,6 @@ export default function DashboardScreen({ onViewAllProducts }: DashboardScreenPr
             </div>
           ))}
         </div>
-
-        {/* Chart & Top Product Section Skeleton */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-sm h-52 md:col-span-2 flex items-end gap-4 px-6 pt-10">
             {[1, 2, 3, 4].map(i => <div key={i} className="bg-gray-200 rounded-t-lg w-full" style={{ height: `${i * 20 + 15}%` }}></div>)}
@@ -73,21 +68,6 @@ export default function DashboardScreen({ onViewAllProducts }: DashboardScreenPr
             <div className="h-4 bg-gray-200 rounded w-24 mb-4"></div>
             <div className="h-8 bg-gray-50 rounded-xl w-full"></div>
             <div className="h-8 bg-gray-50 rounded-xl w-full"></div>
-            <div className="h-8 bg-gray-50 rounded-xl w-full"></div>
-          </div>
-        </div>
-
-        {/* Sub-grid AI Predictions Skeleton */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 border-t border-gray-200/60 pt-5">
-          <div className="bg-white rounded-2xl border border-gray-200/80 p-5 shadow-sm h-48 lg:col-span-2 space-y-3">
-            <div className="h-4 bg-gray-200 rounded w-36 mb-4"></div>
-            <div className="h-6 bg-gray-50 rounded-lg w-full"></div>
-            <div className="h-6 bg-gray-50 rounded-lg w-full"></div>
-          </div>
-          <div className="bg-white rounded-2xl border border-gray-200/80 p-5 shadow-sm h-48 space-y-3">
-            <div className="h-4 bg-gray-200 rounded w-32 mb-4"></div>
-            <div className="h-14 bg-gray-50 rounded-xl w-full"></div>
-            <div className="h-14 bg-gray-50 rounded-xl w-full"></div>
           </div>
         </div>
       </div>
@@ -97,7 +77,7 @@ export default function DashboardScreen({ onViewAllProducts }: DashboardScreenPr
   return (
     <div className="space-y-6 animate-fadeIn max-w-6xl mx-auto w-full px-1 sm:px-2 relative">
       
-      {/* HEADER DASHBOARD BARU SUPER RAPI */}
+      {/* HEADER DASHBOARD DENGAN LOGOUT DAN NOTIFIKASI SEJAJAR SIMETRIS */}
       <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-200/80 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="flex flex-col sm:flex-row sm:items-center gap-3.5 flex-1">
           <h1 className="text-xl font-black text-gray-900 tracking-tight shrink-0">{namaToko}</h1>
@@ -137,16 +117,28 @@ export default function DashboardScreen({ onViewAllProducts }: DashboardScreenPr
             <span>Status Perangkat: <span className="text-emerald-600 font-extrabold">Full Screen</span></span>
           </div>
 
-          <button 
-            type="button"
-            onClick={handleOpenNotification}
-            className="p-2.5 bg-white hover:bg-gray-50 rounded-xl border border-gray-200 text-gray-700 relative active:scale-95 transition-all shadow-sm group"
-          >
-            <Bell size={17} className="group-hover:rotate-12 transition-transform" />
-            {hasUnread && (
-              <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white animate-pulse"></span>
-            )}
-          </button>
+          {/* BLOCK CONTAINER BARU: SEJAJAR LOGOUT & NOTIFIKASI */}
+          <div className="flex items-center gap-2">
+            <button 
+              type="button"
+              onClick={handleOpenNotification}
+              className="p-2.5 bg-white hover:bg-gray-50 rounded-xl border border-gray-200 text-gray-700 relative active:scale-95 transition-all shadow-sm group"
+            >
+              <Bell size={17} className="group-hover:rotate-12 transition-transform" />
+              {hasUnread && (
+                <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white animate-pulse"></span>
+              )}
+            </button>
+
+            <button 
+              type="button"
+              onClick={handleLogoutClick}
+              className="p-2.5 bg-rose-50 hover:bg-rose-100 border border-rose-200/60 text-rose-700 rounded-xl active:scale-95 transition-all shadow-sm"
+              title="Keluar dari Aplikasi"
+            >
+              <LogOut size={17} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -239,12 +231,8 @@ export default function DashboardScreen({ onViewAllProducts }: DashboardScreenPr
         </div>
       </div>
 
-      {/* ==========================================
-          PERUBAHAN PILAR BARU: SEJAJARIN SUB-GRID AI INSIGHTS DI BAWAH UTAMA
-          ========================================== */}
+      {/* SUB-GRID AI INSIGHTS */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 border-t border-gray-200/60 pt-5">
-        
-        {/* Sisi Kiri Lebar: Intelijen Prediksi Kebutuhan Stok Belanja */}
         <div className="bg-white rounded-2xl border border-gray-200/80 p-4 shadow-sm space-y-3 lg:col-span-2">
           <div className="flex justify-between items-center border-b border-gray-50 pb-2">
             <div className="flex items-center gap-1.5">
@@ -295,7 +283,6 @@ export default function DashboardScreen({ onViewAllProducts }: DashboardScreenPr
           </div>
         </div>
 
-        {/* Sisi Kanan: Analisis Matriks Profitabilitas Strategis Menu */}
         <div className="bg-white rounded-2xl border border-gray-200/80 p-4 shadow-sm space-y-3">
           <div className="border-b border-gray-50 pb-2 flex items-center gap-1.5">
             <Sparkles size={15} className="text-indigo-600" />
@@ -328,21 +315,13 @@ export default function DashboardScreen({ onViewAllProducts }: DashboardScreenPr
             })}
           </div>
         </div>
-
       </div>
 
-      {/* ==========================================
-          LIVE NOTIFICATION DRAWER: MODERN PREMIUM UNIFIED CARD
-          ========================================== */}
+      {/* LIVE NOTIFICATION DRAWER */}
       {showNotificationDrawer && (
         <div className="fixed inset-0 bg-gray-950/40 backdrop-blur-sm z-50 flex justify-end animate-fadeIn">
-          {/* Backdrop Click to Close */}
           <div className="flex-1" onClick={() => setShowNotificationDrawer(false)}></div>
-          
-          {/* Panel Konten Drawer */}
           <div className="w-full max-w-md bg-white h-full shadow-2xl border-l border-gray-200 flex flex-col animate-slideLeft">
-            
-            {/* Header Drawer */}
             <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 bg-emerald-50 text-emerald-700 rounded-xl flex items-center justify-center border border-emerald-100 shadow-sm">
@@ -362,19 +341,14 @@ export default function DashboardScreen({ onViewAllProducts }: DashboardScreenPr
               </button>
             </div>
 
-            {/* List Feed Item Transaksi Modern */}
             <div className="flex-1 overflow-y-auto p-4 space-y-3.5">
               {sortedTransactionsFeed.length > 0 ? (
                 sortedTransactionsFeed.map((tx, idx) => {
                   const jamMenit = new Date(tx.waktuTransaksi).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB';
                   return (
                     <div key={tx.id || idx} className="animate-fadeIn">
-                      {/* UNIFIED CARD VISUAL BARU */}
                       <div className="bg-white border border-gray-200/90 rounded-2xl p-4 shadow-sm hover:border-emerald-200 transition-all flex justify-between items-start gap-4">
-                        
-                        {/* Kiri: Metadata & Chips Produk Terjual */}
                         <div className="space-y-3 flex-1">
-                          {/* Baris Jam & Nama Kasir */}
                           <div className="flex items-center gap-2 text-[10px] font-black text-gray-400">
                             <span className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-md px-2 py-0.5 text-gray-600">
                               <Clock size={11} className="text-gray-400" /> {jamMenit}
@@ -384,7 +358,6 @@ export default function DashboardScreen({ onViewAllProducts }: DashboardScreenPr
                             </span>
                           </div>
 
-                          {/* Aliran Chips Produk */}
                           <div className="flex flex-wrap gap-1.5">
                             {tx.items && tx.items.map((item, itemIdx) => (
                               <span 
@@ -400,9 +373,7 @@ export default function DashboardScreen({ onViewAllProducts }: DashboardScreenPr
                           </div>
                         </div>
 
-                        {/* Kanan: Saluran Pembayaran & Total Finansial */}
                         <div className="flex flex-col items-end justify-between self-stretch text-right min-w-[100px]">
-                          {/* Badge Status Metode Pembayaran Kontras */}
                           <span className={`inline-flex items-center text-[9px] font-black px-2 py-0.5 rounded-md tracking-wider border uppercase ${
                             tx.paymentMethod === 'tunai' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
                             tx.paymentMethod === 'qris' ? 'bg-blue-50 text-blue-700 border-blue-200' : 
@@ -412,7 +383,6 @@ export default function DashboardScreen({ onViewAllProducts }: DashboardScreenPr
                             {tx.paymentMethod.toUpperCase()}
                           </span>
 
-                          {/* Total Amount Bersih */}
                           <div className="mt-auto">
                             <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider block">Total Tagihan</span>
                             <span className="text-xs font-black text-gray-900 tracking-tight">
@@ -420,7 +390,6 @@ export default function DashboardScreen({ onViewAllProducts }: DashboardScreenPr
                             </span>
                           </div>
                         </div>
-
                       </div>
                     </div>
                   );
@@ -432,11 +401,9 @@ export default function DashboardScreen({ onViewAllProducts }: DashboardScreenPr
               )}
             </div>
 
-            {/* Footer Drawer */}
             <div className="p-3.5 bg-gray-50 border-t border-gray-100 text-center text-[10px] font-black text-gray-400 tracking-wider uppercase mt-auto">
               Total Manifes Terkunci: {sortedTransactionsFeed.length} Nota Masuk
             </div>
-
           </div>
         </div>
       )}
