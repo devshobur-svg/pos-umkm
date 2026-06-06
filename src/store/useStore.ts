@@ -190,7 +190,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       try {
         const profileSnap = await getDoc(profileRef);
         if (!profileSnap.exists()) {
-          // FIXED WORDING: Default baru saat ruko mendaftar workspace cloud pertama kali
           await setDoc(profileRef, { namaToko: "Outlet POS UMKM" });
         }
         const cashiersSnap = await getDoc(cashiersRef);
@@ -447,7 +446,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     const { allTransactions, user } = get();
     if (!user) return;
     localStorage.removeItem(`offline_tx_queue_${user.uid}`);
-    await Promise.all(allTransactions.map(t => t.id ? deleteDoc(doc(doc(db, 'transactions', t.id).path)) : Promise.resolve()));
+    // FIX: Passing target document reference secara langsung tanpa membungkus ulang bertumpuk-tumpuk
+    await Promise.all(allTransactions.map(t => t.id ? deleteDoc(doc(db, 'transactions', t.id)) : Promise.resolve()));
     set({ cart: [] });
   },
   
